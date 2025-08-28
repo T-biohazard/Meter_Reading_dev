@@ -1,0 +1,26 @@
+[90m= [39m[34;4mIlluminate\Database\Eloquent\Collection[39;24m {#6605
+    [34mall[39m: [
+      [34;4mSpatie\Permission\Models\Permission[39;24m {#6606
+        [34mid[39m: [35m1[39m,
+        [34mname[39m: "[32mmanage users[39m",
+        [34mguard_name[39m: "[32msanctum[39m",
+        [34mcreated_at[39m: "[32m2025-08-19 09:37:48[39m",
+        [34mupdated_at[39m: "[32m2025-08-19 09:37:48[39m",
+      },
+      [34;4mSpatie\Permission\Models\Permission[39;24m {#6603
+        [34mid[39m: [35m2[39m,
+        [34mname[39m: "[32mview products[39m",
+        [34mguard_name[39m: "[32msanctum[39m",
+        [34mcreated_at[39m: "[32m2025-08-19 09:37:48[39m",
+        [34mupdated_at[39m: "[32m2025-08-19 09:37:48[39m",
+      },
+      [34;4mSpatie\Permission\Models\Permission[39;24m {#6602
+        [34mid[39m: [35m3[39m,
+        [34mname[39m: "[32mmanage products[39m",
+        [34mguard_name[39m: "[32msanctum[39m",
+        [34mcreated_at[39m: "[32m2025-08-19 09:37:48[39m",
+        [34mupdated_at[39m: "[32m2025-08-19 09:37:48[39m",
+      },
+    ],
+  }
+
