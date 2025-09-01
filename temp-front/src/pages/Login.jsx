@@ -50,13 +50,14 @@ const Login = () => {
   });
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
+    <div className="flex flex-col items-center justify-center mt-32  gap-4 w-full">
       <FormikProvider value={formik}>
         <form
           onSubmit={formik.handleSubmit}
-          className="card-body bg-white shadow-xl rounded-2xl w-full max-w-md"
+          className="px-8 py-14 bg-white shadow-xl rounded-2xl w-full max-w-md"
           noValidate
         >
+        
           <h2 className="text-3xl font-bold text-center mb-6">Login</h2>
 
           {/* Username with icon in the floating label */}

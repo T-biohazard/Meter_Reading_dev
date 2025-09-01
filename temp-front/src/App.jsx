@@ -15,11 +15,13 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 import { UserManagement } from "./components/users/UserManagement"; // New: Import the UserManagement component
 import RolesPermissionsPage from "./pages/RolesPermissionsPage"; // New: Import the RolesPermissionsPage
 import PermissionsPage from "./pages/PermissionsPage";
+import CustomerDashboard from "./pages/CustomerDashboard";
 // New: Create a client for React Query. This manages caching and data state.
 
 import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
 import '@fortawesome/fontawesome-free/css/solid.min.css';
 import '@fortawesome/fontawesome-free/css/brands.min.css'; // only if you use brands
+import RackDashboard from "./pages/RackDashboard";
 // (optional) import '@fortawesome/fontawesome-free/css/regular.min.css';
 
 
@@ -48,7 +50,8 @@ export default function App() {
               <Route path="register" element={<Registration />} />
               <Route path="403" element={<NotAuthorized />} />
               <Route path="settings" element={<ButtonShowcase />} />
-
+              <Route path="customer" element={<CustomerDashboard />} />
+              <Route path="rack" element={<RackDashboard />} />
               {/* Protected routes that require authentication */}
               <Route element={<ProtectedRoute />}>
                 <Route path="dashboard" element={<Dashboard />} />

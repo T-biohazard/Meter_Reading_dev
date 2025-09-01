@@ -1,4 +1,3 @@
-
 import { Outlet } from "react-router-dom";
 import { useState } from "react";
 import clsx from "clsx";
@@ -21,7 +20,7 @@ export default function MainLayout() {
           <Navbar />
 
           {/* Let main grow so the footer stays at the bottom */}
-          <main className="container mx-auto max-w-screen-2xl px-6 py-8 grow">
+          <main className="container mx-auto max-w-screen-2xl px-2 py-8 grow">
             <Outlet />
           </main>
 

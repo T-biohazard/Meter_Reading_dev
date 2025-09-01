@@ -85,7 +85,7 @@ export default function Navbar() {
           >
             ☰
           </label>
-          <NavLink to="/" className="btn btn-ghost text-xl">MyApp</NavLink>
+          <NavLink to="/" className="btn btn-ghost text-2xl">DCIM</NavLink>
         </div>
 
         {/* center: main nav (desktop) */}

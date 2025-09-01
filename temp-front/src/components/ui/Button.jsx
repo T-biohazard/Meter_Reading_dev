@@ -8,8 +8,8 @@ import { twMerge } from "tailwind-merge";
  *
  * Props:
  * - intent: "ok" | "cancel" | "submit" | "next" | "back" | "delete" | "save"
- * - variant: "primary" | "secondary" | "success" | "danger" | "warning" | "info" | "neutral" | "ghost" | "outline" | "subtle" | "link"
- *   (If both intent and variant are provided, intent wins unless variant is explicit different)
+ * - variant: "primary" | "secondary" | "success" | "danger" | "warning" | "info" | "neutral" | "ghost" | "outline" | "subtle" | "link" | "icon"
+ * (If both intent and variant are provided, intent wins unless variant is explicit different)
  * - size: "xs" | "sm" | "md" | "lg" (default: "md")
  * - leftIcon, rightIcon: React components (e.g., from lucide-react)
  * - loading: boolean (shows spinner and disables)
@@ -25,11 +25,11 @@ import { twMerge } from "tailwind-merge";
  * - className: string
  *
  * Usage:
- *   <Button intent="submit" type="submit">Submit</Button>
- *   <Button variant="outline" leftIcon={Settings}>Settings</Button>
- *   <Button to="/next" rightIcon={ArrowRight}>Next</Button>
- *   <Button loading loadingText="Saving...">Save</Button>
- *   <Button iconOnly aria-label="Add" leftIcon={Plus} />
+ * <Button intent="submit" type="submit">Submit</Button>
+ * <Button variant="outline" leftIcon={Settings}>Settings</Button>
+ * <Button to="/next" rightIcon={ArrowRight}>Next</Button>
+ * <Button loading loadingText="Saving...">Save</Button>
+ * <Button iconOnly aria-label="Add" variant="icon" leftIcon={Plus} />
  */
 
 const intentToVariant = {
@@ -42,6 +42,7 @@ const intentToVariant = {
   save: "primary",
 };
 
+// **Updated variantClasses with a new 'icon' variant**
 const variantClasses = {
   primary: "btn-primary",
   secondary: "btn-secondary",
@@ -53,9 +54,9 @@ const variantClasses = {
   ghost: "btn-ghost",
   outline: "btn-outline",
   link: "btn-link",
-  subtle:
-    // subtle custom look using base tokens
-    "bg-base-200 border border-base-300 text-base-content hover:bg-base-300",
+  subtle: "bg-base-200 border border-base-300 text-base-content hover:bg-base-300",
+  // New 'icon' variant for transparent, no-bg-color buttons
+  icon: "bg-transparent border-none text-gray-600 hover:bg-gray-200",
 };
 
 const sizeClasses = {

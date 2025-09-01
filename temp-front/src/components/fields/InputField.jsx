@@ -54,6 +54,11 @@ export default function InputField({
       ),
     [options]
   );
+  
+  const displayValue = useMemo(() => {
+    const selectedOption = normalized.find(opt => String(opt.value) === String(field.value));
+    return selectedOption ? selectedOption.label : field.value;
+  }, [field.value, normalized]);
 
   const query = String(field.value ?? "");
   const filtered = useMemo(() => {
@@ -66,7 +71,6 @@ export default function InputField({
     return list.slice(0, maxItems);
   }, [dropdown, normalized, filter, minChars, maxItems, query]);
 
-  // NEW: single flag for whether the list is open
   const listOpen = dropdown && open && filtered.length > 0;
 
   const pick = (opt) => {
@@ -78,7 +82,6 @@ export default function InputField({
 
   return (
     <div className={clsx("form-control mb-5", className)}>
-      {/* Wrapper reserves space when list is open to avoid overlapping next field */}
       <div className={clsx("relative isolate", listOpen && "mb-44")}>
         {LeftIcon ? (
           <LeftIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-60 pointer-events-none" />
@@ -86,7 +89,20 @@ export default function InputField({
 
         <input
           id={id}
-          {...field}
+          value={dropdown ? displayValue : field.value}
+          onChange={field.onChange}
+          onBlur={(e) => {
+            setFocused(false);
+            field.onBlur(e);
+            rest.onBlur?.(e);
+            setTimeout(() => setOpen(false), 100);
+          }}
+          onFocus={(e) => {
+            setFocused(true);
+            if (dropdown) setOpen(true);
+            rest.onFocus?.(e);
+          }}
+          name={field.name}
           {...rest}
           type={actualType}
           placeholder={floating ? " " : placeholder}
@@ -94,28 +110,14 @@ export default function InputField({
           disabled={disabled}
           aria-invalid={showError || undefined}
           aria-describedby={showError ? `${id}-error` : undefined}
-          // combobox a11y when dropdown enabled
           role={dropdown ? "combobox" : undefined}
           aria-expanded={dropdown ? open : undefined}
           aria-controls={dropdown ? listboxId : undefined}
           aria-autocomplete={dropdown ? "list" : undefined}
-          onFocus={(e) => {
-            setFocused(true);
-            if (dropdown) setOpen(true);
-            rest.onFocus?.(e);
-          }}
-          onBlur={(e) => {
-            setFocused(false);
-            field.onBlur(e);
-            rest.onBlur?.(e);
-            setTimeout(() => setOpen(false), 100);
-          }}
           className={clsx(
-            // NEW: relative z-0 to keep label/list layering stable
             "input input-bordered w-full rounded-lg bg-white transition-colors peer relative z-0",
             LeftIcon && "pl-9",
             showPasswordToggle && type === "password" && "pr-10",
-            // keep focus border thin / muted
             muteFocus &&
               "focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-transparent !focus:border-base-300 !focus-visible:border-base-300 !shadow-none",
             showError && "input-error"
@@ -133,50 +135,27 @@ export default function InputField({
             {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         ) : null}
-
-        {/* {floating && label ? (
+        
+        {floating && label ? (
           <label
             htmlFor={id}
             className={clsx(
-              // NEW: z-10 (was z-20) and valid offset
-              "absolute z-10 pointer-events-none select-none transition-all duration-200",
+              "absolute z-30 pointer-events-none select-none leading-none transition-all duration-200 bg-white",
               LeftIcon ? "left-9" : "left-3",
-              !hasValue && "top-1/2 -translate-y-2 text-sm opacity-90",
-              (isFocused || hasValue) && `-top-2 translate-y-0 text-xs ${labelBgClass} px-1 rounded`,
-              isFocused ? "text-primary" : showError ? "text-error" : "text-base-content/70"
+              !hasValue && !isFocused && "top-1/2 -translate-y-1/2 text-sm opacity-90",
+              (isFocused || hasValue) && "-top-2.5 translate-y-0 text-xs px-1 rounded",
+              isFocused ? "text-primary" : showError ? "text-error" : "text-base-content/70",
+              (isFocused || hasValue) && labelBgClass
             )}
           >
             {label} {required ? <span className="text-error">*</span> : null}
           </label>
-        ) : null} */}
-{floating && label ? (
-  <label
-    htmlFor={id}
-    className={clsx(
-      // higher than the input so the border doesn't cross the text
-      "absolute z-30 pointer-events-none select-none leading-none transition-all duration-200 bg-white",
-      LeftIcon ? "left-9" : "left-3",
-      // placeholder state
-      !hasValue && "top-1/2 -translate-y-1/2 text-sm opacity-90",
-      // floating state: move a touch higher and paint a bg chip
-      (isFocused || hasValue) &&
-        "-top-2.5 translate-y-0 text-xs px-1 rounded",
-      // colors
-      isFocused ? "text-primary" : showError ? "text-error" : "text-base-content/70",
-      // apply bg only when floating
-      (isFocused || hasValue) && labelBgClass // e.g. "bg-base-200"
-    )}
-  >
-    {label} {required ? <span className="text-error">*</span> : null}
-  </label>
-) : null}
+        ) : null}
 
-        {/* Dropdown panel */}
         {listOpen && (
           <ul
             id={listboxId}
             role="listbox"
-            // NEW: higher z and stronger shadow
             className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-base-300 bg-base-100 shadow-xl"
           >
             {filtered.map((opt) => (
@@ -184,7 +163,7 @@ export default function InputField({
                 key={`${opt.value}`}
                 role="option"
                 aria-selected={String(opt.value) === String(field.value)}
-                onMouseDown={(e) => e.preventDefault()} // keep input focused
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(opt)}
                 className={clsx(
                   "px-3 py-2 cursor-pointer hover:bg-base-200",

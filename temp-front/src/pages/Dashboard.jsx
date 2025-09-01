@@ -258,7 +258,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="max-w-none mr-auto">
+    <div className="max-w-none mr-auto px-4 md:px-8 lg:px-10 py-8">
       <style>{`
         input[name="menu_icon"],
         input[name="sub_menu_icon"],
