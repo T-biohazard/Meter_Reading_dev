@@ -48,7 +48,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
   return (
     <aside
       className={`h-full bg-base-200 border-r border-base-300 shadow-md transition-all duration-200
-                  ${collapsed ? "w-16" : "w-72"} flex flex-col overflow-hidden
+                  ${collapsed ? "w-16" : "w-60"} flex flex-col overflow-hidden
                   [&_summary::-webkit-details-marker]:hidden [&_summary::marker]:hidden`}
     >
       {/* 2-line clamp helper for labels (no external CSS needed) */}
