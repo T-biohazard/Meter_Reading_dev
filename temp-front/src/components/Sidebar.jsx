@@ -68,7 +68,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
         <div className="flex items-center justify-between mb-2 px-3 py-2">
           {/* This is the corrected line */}
           <div className="flex-1 flex justify-center">
-            {!collapsed ? <span className="font-semibold"><img className="h-12 w-12" src="../../public/logo.png" alt="Logo" /></span> : <span className="w-4" />}
+            {!collapsed ? <span className="font-semibold"><img className="h-12 w-12" src="/logo.png" alt="Logo" /></span> : <span className="w-4" />}
           </div>
           <button
             className="btn btn-ghost btn-sm"

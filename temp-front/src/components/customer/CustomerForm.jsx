@@ -1,3 +1,4 @@
+// src/components/forms/CustomerForm.jsx
 import React, { useState, useEffect } from "react";
 import Button from '../ui/Button';
 import { useFormik, FormikProvider } from "formik";
@@ -7,9 +8,9 @@ import SelectField from "../fields/SelectField";
 
 const defaultFormValues = {
   customer: "",
-  formula_billing_id: "",
-  threshold: "",
-  grace_value: "",
+  formula_billing_id: null,
+  threshold: null,
+  grace_value: null,
   status: "",
 };
 
@@ -22,16 +23,14 @@ export default function CustomerForm({ initialValues, isEditMode, onSubmit, onCa
     onSubmit: async (values) => {
       setIsSubmitting(true);
       try {
-        // Filter out any empty values if in edit mode to avoid sending optional fields with no data
-        const payload = isEditMode
-          ? Object.fromEntries(Object.entries(values).filter(([_, v]) => v !== "" && v !== null))
-          : values;
+        const payload = Object.fromEntries(
+          Object.entries(values).filter(([_, v]) => v !== null && v !== "")
+        );
 
         await onSubmit(payload, {
           resetForm: () => formik.resetForm({ values: defaultFormValues }),
         });
       } catch (error) {
-        // Handle API submission errors if needed
       } finally {
         setIsSubmitting(false);
       }
@@ -42,9 +41,9 @@ export default function CustomerForm({ initialValues, isEditMode, onSubmit, onCa
     if (isEditMode && initialValues) {
       formik.setValues({
         customer: initialValues.customer || "",
-        formula_billing_id: initialValues.formula_billing_id || "",
-        threshold: initialValues.threshold || "",
-        grace_value: initialValues.grace_value || "",
+        formula_billing_id: initialValues.formula_billing_id || null,
+        threshold: initialValues.threshold || null,
+        grace_value: initialValues.grace_value || null,
         status: initialValues.status || "",
       });
     }
@@ -54,6 +53,8 @@ export default function CustomerForm({ initialValues, isEditMode, onSubmit, onCa
     { label: "Formula A", value: 101 },
     { label: "Formula B", value: 102 },
     { label: "Formula C", value: 103 },
+    { label: "Formula D", value: 104 },
+    { label: "Formula E", value: 105 },
   ];
 
   const statusOptions = [
@@ -78,6 +79,7 @@ export default function CustomerForm({ initialValues, isEditMode, onSubmit, onCa
             name="formula_billing_id"
             label="Billing Formula"
             options={billingFormulaOptions}
+            searchable
           />
           <InputField
             name="threshold"
@@ -95,6 +97,7 @@ export default function CustomerForm({ initialValues, isEditMode, onSubmit, onCa
             name="status"
             label="Status"
             options={statusOptions}
+            searchable
           />
           <div className='flex w-full justify-end mt-4 space-x-2 col-span-full'>
             <Button intent="cancel" type='button' onClick={onCancel} disabled={isSubmitting}>
