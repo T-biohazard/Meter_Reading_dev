@@ -35,7 +35,7 @@ const FilterMenu = ({ columns, onFilterChange }) => {
 
     return (
         <>
-            <Button onClick={() => setDrawerOpen(true)} leftIcon={Filter} intent="ghost">
+            <Button onClick={() => setDrawerOpen(true)} leftIcon={Filter} variant="icon">
                 Filters
                 {activeFiltersCount > 0 && (
                     <span className="inline-flex items-center justify-center h-4 w-4 rounded-full text-xs font-semibold bg-blue-500 text-white ml-1">

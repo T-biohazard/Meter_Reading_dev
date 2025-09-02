@@ -103,10 +103,11 @@ export default function CustomerDashboard() {
   };
 
   const customerColumns = useMemo(() => [
+    
     { key: 'customer', header: 'Customer Name', field: InputField },
-    { key: 'formula_billing_id', header: 'Billing Formula', align: 'center', field: InputField },
-    { key: 'threshold', header: 'Threshold', field: InputField, fieldProps: { type: 'number', placeholder: 'Min value' } },
-    { key: 'grace_value', header: 'Grace Value', field: InputField },
+    { key: 'formula_billing_id', header: 'Billing Formula', align: 'center',  },
+    { key: 'threshold', header: 'Threshold',   },
+    { key: 'grace_value', header: 'Grace Value',  },
     { 
       key: 'status', 
       header: 'Status', 
@@ -184,7 +185,7 @@ export default function CustomerDashboard() {
         </div>
         
         <div className="flex items-center gap-4">
-          <FilterMenu columns={customerColumns} onFilterChange={setFilters} />
+          
           <ExportButton 
             data={customers} 
             columns={customerColumns} 
@@ -217,6 +218,8 @@ export default function CustomerDashboard() {
           columns={customerColumns}
           searchable={true}
           selection={true}
+          showId={true}
+          filterComponent={<FilterMenu columns={customerColumns} onFilterChange={setFilters} />} 
         />
       )}
 

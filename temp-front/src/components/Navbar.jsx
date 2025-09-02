@@ -91,9 +91,7 @@ export default function Navbar() {
         {/* center: main nav (desktop) */}
         <ul className="menu menu-horizontal gap-1 hidden md:flex">
           <li><NavLink to="/" end className={linkClass}>Home</NavLink></li>
-          {signedIn && (
-            <li><NavLink to="/dashboard" className={linkClass}>Dashboard</NavLink></li>
-          )}
+          
           {canSeeSettings && (
             <li><NavLink to="/settings" className={linkClass}>Settings</NavLink></li>
           )}

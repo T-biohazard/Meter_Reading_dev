@@ -179,7 +179,7 @@ export default function DatacenterDashboard() {
           <p className="opacity-70">View and Manage the list of Datacenters.</p>
         </div>
         <div className="flex items-center gap-4">
-          <FilterMenu columns={datacenterColumns} onFilterChange={setFilters} />
+          
           <ExportButton 
             data={datacenters} 
             columns={datacenterColumns} 
@@ -210,6 +210,8 @@ export default function DatacenterDashboard() {
           columns={datacenterColumns}
           searchable={true}
           selection={true}
+          showId={true}
+          filterComponent={<FilterMenu columns={datacenterColumns} onFilterChange={setFilters} />}
         />
       )}
       <ToastContainer toasts={toasts} removeToast={removeToast} />

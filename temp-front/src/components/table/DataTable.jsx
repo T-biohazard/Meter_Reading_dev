@@ -1,3 +1,4 @@
+// src/components/table/DataTable.jsx
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import {
   Search,
@@ -24,23 +25,32 @@ export default function DataTable({
   columns = undefined,
   searchable = true,
   selection = true,
+  showId = false, 
   pageSizeOptions = [10, 25, 50],
   initialPageSize = 10,
   initialSort,
   stickyHeader = true,
   importMeta,
   onSelectionChange,
+  filterComponent, // 👈 New prop for the filter menu
 }) {
   // ---- columns ----
   const inferredCols = useMemo(() => {
+    let cols = [];
     if (columns && columns.length > 0) {
-      return columns.map((c) =>
+      cols = columns.map((c) =>
         typeof c === "string" ? { key: c, header: humanize(c) } : { header: humanize(c.key), ...c }
       );
+    } else {
+      const first = data?.[0] || {};
+      cols = Object.keys(first).map((k) => ({ key: k, header: humanize(k) }));
     }
-    const first = data?.[0] || {};
-    return Object.keys(first).map((k) => ({ key: k, header: humanize(k) }));
-  }, [columns, data]);
+
+    if (showId) {
+      cols = [{ key: 'id', header: 'ID', render: (val, row, index) => index + 1, isSortable: false }, ...cols];
+    }
+    return cols;
+  }, [columns, data, showId]);
 
   const [visibleCols, setVisibleCols] = useState(() => new Set(inferredCols.map((c) => c.key)));
   useEffect(() => { setVisibleCols(new Set(inferredCols.map((c) => c.key))); }, [inferredCols]);
@@ -191,6 +201,7 @@ export default function DataTable({
           </div>
 
           <div className="flex items-center gap-2">
+            {filterComponent} {/* 👈 Render the filter component here */}
             {/* Column visibility */}
             <div className="relative" ref={colBtnRef}>
               <button
@@ -206,9 +217,6 @@ export default function DataTable({
 
               {colMenuOpen && (
                 <div className="absolute right-0 z-40 mt-2 w-56 rounded-lg border border-gray-200 bg-white shadow-xl p-2">
-                  {/* <p className="px-2 py-1 text-xs uppercase text-gray-500">Toggle Columns</p> */}
-
-                  {/* Updated Select All label for consistent styling */}
                   <label className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer border-b border-gray-200 mb-2">
                     <input
                       type="checkbox"
@@ -310,7 +318,7 @@ export default function DataTable({
                             className={clsx("py-3 px-4", col.align === "right" && "text-right", col.align === "center" && "text-center")}
                             style={{ width: col.width }}
                           >
-                            {col.render ? col.render(row[col.key], row) : safeCell(row[col.key])}
+                            {col.render ? col.render(row[col.key], row, i) : safeCell(row[col.key])}
                           </td>
                         )
                       )}

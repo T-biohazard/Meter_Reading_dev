@@ -21,6 +21,7 @@ function debounce(fn, delay) {
 export default function SelectField({
   name,
   label,
+  floating,
   options = [],
   className,
   multiple = false,

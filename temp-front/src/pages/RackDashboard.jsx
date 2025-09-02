@@ -200,7 +200,7 @@ export default function RackDashboard() {
           <p className="opacity-70">View and Manage the list of Racks.</p>
         </div>
         <div className="flex items-center gap-4">
-          <FilterMenu columns={rackColumns} onFilterChange={setFilters} />
+          
           <ExportButton 
             data={racks} 
             columns={rackColumns} 
@@ -231,6 +231,8 @@ export default function RackDashboard() {
           columns={rackColumns}
           searchable={true}
           selection={true}
+          showId={true}
+          filterComponent={<FilterMenu columns={rackColumns} onFilterChange={setFilters} />}
         />
       )}
       <ToastContainer toasts={toasts} removeToast={removeToast} />

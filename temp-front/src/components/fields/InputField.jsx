@@ -19,6 +19,7 @@ export default function InputField({
   floating = true,
   labelBgClass = "bg-base-200",
   muteFocus = true,
+  inputClassName, // 👈 Destructure inputClassName here
 
   // dropdown props
   dropdown = false,
@@ -120,7 +121,8 @@ export default function InputField({
             showPasswordToggle && type === "password" && "pr-10",
             muteFocus &&
               "focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-transparent !focus:border-base-300 !focus-visible:border-base-300 !shadow-none",
-            showError && "input-error"
+            showError && "input-error",
+            inputClassName // 👈 Apply inputClassName here
           )}
         />
 

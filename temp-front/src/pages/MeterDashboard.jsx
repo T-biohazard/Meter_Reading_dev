@@ -134,7 +134,7 @@ export default function MeterDashboard() {
       fieldProps: { options: rackOptions, searchable: true }
     },
     { key: 'serial', header: 'Serial', field: InputField },
-    { key: 'name', header: 'Name', field: InputField },
+    { key: 'name', header: 'Meter Name', field: InputField },
     { 
       key: 'primary_secondary', 
       header: 'Type',
@@ -158,9 +158,9 @@ export default function MeterDashboard() {
         ]
       }
     },
-    { key: 'installed_point', header: 'Installed Point', field: InputField },
-    { key: 'power_source', header: 'Power Source', field: InputField },
-    { key: 'phase_source', header: 'Phase Source', field: InputField },
+    { key: 'installed_point', header: 'Installed Point',  },
+    { key: 'power_source', header: 'Power Source',  },
+    { key: 'phase_source', header: 'Phase Source', },
     { 
       key: 'status', 
       header: 'Status',
@@ -237,7 +237,7 @@ export default function MeterDashboard() {
           <p className="opacity-70">View and Manage the list of Meters.</p>
         </div>
         <div className="flex items-center gap-4">
-          <FilterMenu columns={meterColumns} onFilterChange={setFilters} />
+          
           <ExportButton 
             data={meters} 
             columns={meterColumns} 
@@ -268,6 +268,8 @@ export default function MeterDashboard() {
           columns={meterColumns}
           searchable={true}
           selection={true}
+          showId={true}
+          filterComponent={<FilterMenu columns={meterColumns} onFilterChange={setFilters} />}
         />
       )}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
