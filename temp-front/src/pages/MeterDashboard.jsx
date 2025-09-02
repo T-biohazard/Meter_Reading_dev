@@ -1,11 +1,10 @@
-// src/pages/RackDashboard.jsx
-
+// src/pages/MeterDashboard.jsx
 import DataTable from '../components/table/DataTable';
 import { useFastApi } from '../hooks/fastapihooks/fastapihooks';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Button from '../components/ui/Button';
 import ToastContainer from '../components/ui/ToastContainer';
-import RackForm from '../components/rack/RackForm';
+import MeterForm from '../components/meter/MeterForm';
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import ExportButton from '../components/ui/ExportButton';
 import { FaFileExcel } from 'react-icons/fa';
@@ -14,20 +13,22 @@ import InputField from '../components/fields/InputField';
 import SelectField from '../components/fields/SelectField';
 
 /**
- * Rack dashboard component with full CRUD functionality.
+ * Meter dashboard component with full CRUD functionality.
  */
-export default function RackDashboard() {
+export default function MeterDashboard() {
   const api = useFastApi();
-  const [racks, setRacks] = useState([]);
+  const [meters, setMeters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editingRack, setEditingRack] = useState(null);
+  const [editingMeter, setEditingMeter] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [filters, setFilters] = useState({});
   const [query, setQuery] = useState('');
   const [datacenterOptions, setDatacenterOptions] = useState([]);
+  const [rackOptions, setRackOptions] = useState([]);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   const removeToast = (id) => {
     setToasts((currentToasts) => currentToasts.filter((t) => t.id !== id));
@@ -41,58 +42,61 @@ export default function RackDashboard() {
     }, 5000);
   }, []);
 
-  const fetchRacks = useCallback(async () => {
+  const fetchMeters = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.listRacks();
-      setRacks(data);
+      const data = await api.listMeters();
+      setMeters(data);
     } catch (err) {
-      console.error("Failed to fetch racks:", err);
+      console.error("Failed to fetch meters:", err);
       setError(err.message);
-      showToast("Failed to fetch racks.", "error");
+      showToast("Failed to fetch meters.", "error");
     } finally {
       setLoading(false);
     }
   }, [api, showToast]);
 
-  // Fetch datacenter options for the filter dropdown
-  const fetchDatacenterOptions = useCallback(async () => {
+  const fetchDependencies = useCallback(async () => {
     try {
-      const data = await api.listDatacenters();
-      setDatacenterOptions(data.map(dc => ({ label: dc.datacenter_name, value: dc.id })));
+      const datacenters = await api.listDatacenters();
+      const racks = await api.listRacks();
+      setDatacenterOptions(datacenters.map(dc => ({ label: dc.datacenter_name, value: dc.id })));
+      setRackOptions(racks.map(rack => ({ label: rack.rack_name, value: rack.id })));
+      setIsDataLoaded(true);
     } catch (err) {
-      console.error("Failed to fetch datacenter options:", err);
+      console.error("Failed to fetch dependencies:", err);
+      showToast("Failed to load form data.", "error");
     }
-  }, [api]);
+  }, [api, showToast]);
 
   useEffect(() => {
-    fetchRacks();
-    fetchDatacenterOptions();
-  }, [fetchRacks, fetchDatacenterOptions]);
+    fetchMeters();
+    fetchDependencies();
+  }, [fetchMeters, fetchDependencies]);
 
   const openNewForm = () => {
     setIsEditMode(false);
-    setEditingRack(null);
+    setEditingMeter(null);
     setAddOpen(true);
   };
 
-  const handleEdit = (rack) => {
+  const handleEdit = (meter) => {
     setIsEditMode(true);
-    setEditingRack(rack);
+    setEditingMeter(meter);
     setAddOpen(true);
   };
 
-  const handleDelete = async (rackId) => {
-    if (window.confirm("Are you sure you want to delete this rack?")) {
+  const handleDelete = async (meterId) => {
+    if (window.confirm("Are you sure you want to delete this meter?")) {
       try {
-        await api.deleteRack(rackId);
-        showToast("Rack deleted successfully.", "success");
+        await api.deleteMeter(meterId);
+        showToast("Meter deleted successfully.", "success");
       } catch (err) {
-        showToast("Failed to delete rack.", "error");
+        showToast("Failed to delete meter.", "error");
         console.error("Delete failed:", err);
       } finally {
-        fetchRacks();
+        fetchMeters();
       }
     }
   };
@@ -100,38 +104,71 @@ export default function RackDashboard() {
   const handleFormSubmit = async (values, { resetForm }) => {
     try {
       if (isEditMode) {
-        await api.updateRack(editingRack.id, values);
-        showToast("Rack updated successfully.", "success");
+        await api.updateMeter(editingMeter.id, values);
+        showToast("Meter updated successfully.", "success");
       } else {
-        await api.createRack(values);
-        showToast("Rack created successfully.", "success");
+        await api.createMeter(values);
+        showToast("Meter created successfully.", "success");
       }
     } catch (err) {
       showToast(err.message || "Save failed.", "error");
     } finally {
-      fetchRacks();
+      fetchMeters();
       resetForm();
       setAddOpen(false);
     }
   };
 
   // 👈 Update column definitions to include `field` and `fieldProps`
-  const rackColumns = useMemo(() => [
+  const meterColumns = useMemo(() => [
     { 
       key: 'datacenter_id', 
       header: 'Datacenter Name',
-      field: SelectField, 
-      fieldProps: { options: datacenterOptions }
+      field: SelectField,
+      fieldProps: { options: datacenterOptions, searchable: true }
     },
-    { key: 'rack_name', header: 'Rack Name', field: InputField },
+    { 
+      key: 'rack_id', 
+      header: 'Rack Name',
+      field: SelectField,
+      fieldProps: { options: rackOptions, searchable: true }
+    },
+    { key: 'serial', header: 'Serial', field: InputField },
+    { key: 'name', header: 'Name', field: InputField },
+    { 
+      key: 'primary_secondary', 
+      header: 'Type',
+      field: SelectField,
+      fieldProps: {
+        options: [
+          { label: 'Primary', value: 'primary' },
+          { label: 'Secondary', value: 'secondary' },
+        ]
+      }
+    },
+    { 
+      key: 'phase', 
+      header: 'Phase',
+      field: SelectField,
+      fieldProps: {
+        options: [
+          { label: 'Phase 1', value: 'Phase 1' },
+          { label: 'Phase 2', value: 'Phase 2' },
+          { label: 'Phase 3', value: 'Phase 3' },
+        ]
+      }
+    },
+    { key: 'installed_point', header: 'Installed Point', field: InputField },
+    { key: 'power_source', header: 'Power Source', field: InputField },
+    { key: 'phase_source', header: 'Phase Source', field: InputField },
     { 
       key: 'status', 
-      header: 'Status', 
-      field: SelectField, 
-      fieldProps: { 
+      header: 'Status',
+      field: SelectField,
+      fieldProps: {
         options: [
           { label: 'Active', value: 'Active' },
-          { label: 'Inactive', value: 'Inactive' }
+          { label: 'Inactive', value: 'Inactive' },
         ]
       }
     },
@@ -149,15 +186,15 @@ export default function RackDashboard() {
         </div>
       ),
     },
-  ], [handleEdit, handleDelete, datacenterOptions]);
+  ], [handleEdit, handleDelete, datacenterOptions, rackOptions]);
 
-  const filteredRacks = useMemo(() => {
-    let result = racks;
+  const filteredMeters = useMemo(() => {
+    let result = meters;
     
     if (query.trim()) {
       const q = query.toLowerCase();
       result = result.filter(row =>
-        rackColumns.some(c =>
+        meterColumns.some(c =>
           String(row[c.key] ?? "").toLowerCase().includes(q)
         )
       );
@@ -169,7 +206,7 @@ export default function RackDashboard() {
           if (key === 'status') {
             return String(row[key]).toLowerCase() === String(value).toLowerCase();
           }
-          if (key === 'datacenter_id') {
+          if (key === 'datacenter_id' || key === 'rack_id') {
              return String(row[key]) === String(value);
           }
           return String(row[key] || '').toLowerCase().includes(String(value).toLowerCase());
@@ -178,12 +215,12 @@ export default function RackDashboard() {
     }
     
     return result;
-  }, [racks, query, filters, rackColumns]);
+  }, [meters, query, filters, meterColumns]);
 
   if (addOpen) {
     return (
-      <RackForm
-        initialValues={editingRack}
+      <MeterForm
+        initialValues={editingMeter}
         isEditMode={isEditMode}
         onSubmit={handleFormSubmit}
         onCancel={() => setAddOpen(false)}
@@ -196,15 +233,15 @@ export default function RackDashboard() {
     <div className=''>
       <div className='flex justify-between items-center pb-16'>
         <div>
-          <h1 className='text-2xl font-bold'>Racks</h1>
-          <p className="opacity-70">View and Manage the list of Racks.</p>
+          <h1 className='text-2xl font-bold'>Meters</h1>
+          <p className="opacity-70">View and Manage the list of Meters.</p>
         </div>
         <div className="flex items-center gap-4">
-          <FilterMenu columns={rackColumns} onFilterChange={setFilters} />
+          <FilterMenu columns={meterColumns} onFilterChange={setFilters} />
           <ExportButton 
-            data={racks} 
-            columns={rackColumns} 
-            fileName="racks" 
+            data={meters} 
+            columns={meterColumns} 
+            fileName="meters" 
             intent="primary"
             leftIcon={FaFileExcel}
             className="text-white-500  bg-green-700 hover:bg-green-800 border-none"
@@ -212,13 +249,13 @@ export default function RackDashboard() {
             Export
           </ExportButton>
           <Button intent="primary" onClick={openNewForm} leftIcon={Plus}>
-            Add Rack
+            Add Meter
           </Button>
         </div>
       </div>
       {loading ? (
         <div className="flex justify-center items-center py-20 text-gray-500">
-          <p>Loading racks...</p>
+          <p>Loading meters...</p>
         </div>
       ) : error ? (
         <div className="flex justify-center items-center py-20 text-red-500">
@@ -226,9 +263,9 @@ export default function RackDashboard() {
         </div>
       ) : (
         <DataTable
-          title="Rack Records"
-          data={filteredRacks}
-          columns={rackColumns}
+          title="Meter Records"
+          data={filteredMeters}
+          columns={meterColumns}
           searchable={true}
           selection={true}
         />

@@ -1,47 +1,11 @@
 // src/components/table/FilterMenu.jsx
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Filter, X, ChevronRight } from 'lucide-react';
+import { Filter, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useOutside } from '../../hooks/useOutside';
 import Button from '../ui/Button';
-
-const FilterInput = ({ column, value, onChange }) => {
-    switch (column.key) {
-        case 'status':
-            return (
-                <select 
-                    className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    value={value || ''}
-                    onChange={e => onChange(e.target.value)}
-                >
-                    <option value="">All</option>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                </select>
-            );
-        case 'threshold':
-            return (
-                <input
-                    type="number"
-                    placeholder="Min value"
-                    className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    value={value || ''}
-                    onChange={e => onChange(e.target.value)}
-                />
-            );
-        default:
-            return (
-                <input
-                    type="text"
-                    placeholder={`Filter by ${column.header}`}
-                    className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    value={value || ''}
-                    onChange={e => onChange(e.target.value)}
-                />
-            );
-    }
-};
+import { useFormik, FormikProvider } from 'formik';
 
 const FilterMenu = ({ columns, onFilterChange }) => {
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -49,28 +13,22 @@ const FilterMenu = ({ columns, onFilterChange }) => {
     const drawerRef = useRef(null);
     useOutside(drawerRef, () => setDrawerOpen(false));
 
-    useEffect(() => {
-        onFilterChange(filters);
-    }, [filters, onFilterChange]);
-
-    const handleFilterChange = (key, value) => {
-        setFilters(prev => {
-            const newFilters = { ...prev };
-            if (value && String(value).trim() !== '') {
-                newFilters[key] = value;
-            } else {
-                delete newFilters[key];
-            }
-            return newFilters;
-        });
-    };
+    const formik = useFormik({
+        initialValues: filters,
+        onSubmit: (values) => {
+            setFilters(values);
+            onFilterChange(values);
+            setDrawerOpen(false);
+        },
+        enableReinitialize: true,
+    });
 
     const clearFilters = () => {
-        setFilters({});
+        formik.resetForm({ values: {} });
     };
 
     const applyFilters = () => {
-        setDrawerOpen(false);
+        formik.handleSubmit();
     };
 
     const activeFiltersCount = useMemo(() => Object.keys(filters).length, [filters]);
@@ -109,29 +67,35 @@ const FilterMenu = ({ columns, onFilterChange }) => {
                     </Button>
                 </div>
 
-                <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-                    {columns.filter(c => c.key !== 'actions').map(col => (
-                        <div key={col.key}>
-                            <label className="text-sm font-medium text-gray-700 block mb-1">
-                                {col.header || col.key}
-                            </label>
-                            <FilterInput
-                                column={col}
-                                value={filters[col.key]}
-                                onChange={value => handleFilterChange(col.key, value)}
-                            />
+                <FormikProvider value={formik}>
+                    <form className="flex-1 p-4 space-y-4 overflow-y-auto" onSubmit={formik.handleSubmit}>
+                        {columns
+                            .filter(col => col.key !== 'actions' && col.field)
+                            .map(col => {
+                                const FieldComponent = col.field;
+                                return (
+                                    <div key={col.key}>
+                                        <FieldComponent
+                                            {...col.fieldProps}
+                                            name={col.key}
+                                            label={col.header || col.key}
+                                            // Change floating to true so the label renders
+                                            floating={true}
+                                            className="mb-0"
+                                        />
+                                    </div>
+                                );
+                            })}
+                        <div className="flex-none p-4 border-t border-gray-200 bg-white flex justify-end gap-2">
+                            <Button onClick={clearFilters} intent="ghost" type="button">
+                                Clear All
+                            </Button>
+                            <Button intent="primary" type="submit">
+                                Apply
+                            </Button>
                         </div>
-                    ))}
-                </div>
-
-                <div className="flex-none p-4 border-t border-gray-200 bg-white flex justify-end gap-2">
-                    <Button onClick={clearFilters} intent="ghost">
-                        Clear All
-                    </Button>
-                    <Button onClick={applyFilters} intent="primary">
-                        Apply
-                    </Button>
-                </div>
+                    </form>
+                </FormikProvider>
             </div>
         </>
     );

@@ -1,4 +1,3 @@
-// src/components/fields/SelectField.jsx
 import React, {
   useId,
   useState,
@@ -149,7 +148,6 @@ export default function SelectField({
       );
       if (idx !== -1) nextIndex = idx;
     } else {
-      // default to first non-disabled
       nextIndex = filteredOptions.findIndex((o) => !o.disabled);
     }
     setActiveIndex(nextIndex);
@@ -161,27 +159,43 @@ export default function SelectField({
     el?.scrollIntoView({ block: 'nearest' });
   }, [activeIndex, open]);
 
-  /* ---------- commit & selection ---------- */
-  const formValidateField = (n) => {
-    try {
-      formik?.validateField?.(n);
-    } catch (_) {}
-  };
+  // FIX: Reset query when value changes or dropdown is closed
+  useEffect(() => {
+    if (!open && multiple) {
+      setQuery(''); // Clear query when closing multiselect
+    } else if (!open && !multiple) {
+      setQuery(displayLabel);
+    }
+  }, [displayLabel, open, multiple]);
+  
+  useEffect(() => {
+    if (!searchable && !multiple) {
+        setQuery(displayLabel);
+    }
+  }, [displayLabel, searchable, multiple]);
 
+
+  /* ---------- commit & selection ---------- */
   const commitValue = useCallback(
     (val) => {
       if (name) {
-        helpers.setValue(val);
-        if (validateOnSelect) {
-          // mark touched and force validation
-          helpers.setTouched(true, true);
-          formValidateField(name);
+        if (formik?.setFieldValue) {
+          formik.setFieldValue(name, val, validateOnSelect)
+            .then(() => {
+                formik.setFieldTouched(name, true, false);
+            })
+            .catch(() => {});
+        } else {
+          helpers.setValue(val);
+          if (validateOnSelect) {
+            helpers.setTouched(true);
+          }
         }
       } else {
         onChange?.(val);
       }
     },
-    [helpers, name, validateOnSelect, onChange] // formValidateField reads formik via closure
+    [name, validateOnSelect, onChange, formik, helpers]
   );
 
   const applySelection = (option) => {
@@ -194,12 +208,12 @@ export default function SelectField({
         .map((key) => keyToValue.get(key))
         .filter((v) => v !== undefined);
       commitValue(next);
-      setQuery('');
+      setQuery(''); // Clear query for new search
       setOpen(true);
       if (searchable) inputRef.current?.focus();
     } else {
       commitValue(option.value);
-      setQuery('');
+      setQuery(option.label); 
       setOpen(false);
       setFocused(false);
     }
@@ -208,11 +222,17 @@ export default function SelectField({
   const clearSelection = (e) => {
     e.stopPropagation();
     if (disabled) return;
-    commitValue(multiple ? [] : '');
-    // force re-validate immediately
+    const nextValue = multiple ? [] : '';
     if (name) {
-      helpers.setTouched(true, true);
-      formValidateField(name);
+      if (formik?.setFieldValue) {
+        formik.setFieldValue(name, nextValue, true);
+        formik.setFieldTouched(name, true, false);
+      } else {
+        helpers.setValue(nextValue);
+        helpers.setTouched(true, true);
+      }
+    } else {
+      onChange?.(nextValue);
     }
     setQuery('');
     setOpen(searchable);
@@ -275,7 +295,6 @@ export default function SelectField({
         }
         break;
       default:
-        // typeahead for non-searchable
         if (!searchable && /^[a-z0-9]$/i.test(e.key)) {
           const idx = filteredOptions.findIndex((o) =>
             o.label.toLowerCase().startsWith(e.key.toLowerCase())
@@ -288,18 +307,11 @@ export default function SelectField({
 
   const listboxId = `${id}-listbox`;
 
-  /* ---------- FIX: derived input value and floating label logic ---------- */
-  // show label floated only when a committed value exists or the control is focused
-  const showFloatingLabel = hasValue || isFocused;
-
-  // input should show the typing query while the control is open or focused, otherwise show the selected label
-  const inputValue = (open || isFocused) ? query : displayLabel;
-
-  /* ---------- render ---------- */
+  const showFloatingLabel = hasValue || isFocused || open;
+  
   return (
     <div ref={rootRef} className={clsx('form-control mb-5', className)} {...rest}>
       <div className="relative">
-        {/* Wrapper: keep DaisyUI look but remove focus rings (double border) */}
         <div
           role="combobox"
           aria-haspopup="listbox"
@@ -308,61 +320,85 @@ export default function SelectField({
           aria-disabled={disabled}
           className={clsx(
             'input input-bordered w-full rounded-lg bg-white relative flex items-center justify-between',
-            // remove any focus ring / extra border when child input receives focus
             'focus-within:outline-none focus-within:ring-0 focus-within:shadow-none focus-within:border-base-300',
             'outline-none ring-0',
             hasError && 'input-error',
             disabled && 'opacity-60 cursor-not-allowed',
-            classNames.trigger
+            classNames.trigger,
+            (multiple && hasValue) && 'h-auto min-h-[3rem] items-start py-2'
           )}
           onClick={() => {
             if (disabled) return;
             setFocused(true);
             setOpen((o) => !o);
-            if (searchable) inputRef.current?.focus();
+            inputRef.current?.focus(); // Ensure input is always focused
           }}
           onKeyDown={(e) => {
             if (!searchable) handleKeyDown(e);
           }}
         >
-          {searchable ? (
-            <input
-              id={id}
-              ref={inputRef}
-              type="text"
-              autoComplete="off"
-              disabled={disabled}
-              // FIX: controlled derived value to avoid flicker/duplication
-              className="w-full h-full bg-transparent border-none outline-none appearance-none px-3 py-3 focus:outline-none focus:ring-0 focus:border-0"
-              value={inputValue}
-              placeholder=""
-              onChange={(e) => {
-                setQuery(e.target.value);
-                if (!open) setOpen(true);
-                updateQuery(e.target.value);
-              }}
-              onFocus={(e) => {
-                e.stopPropagation();
-                setFocused(true);
-                setOpen(true);
-              }}
-              onBlur={() => {
-                setFocused(false);
-                // mark touched on blur so Formik validation behaves predictably
-                if (name) helpers.setTouched(true);
-              }}
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={handleKeyDown}
-              aria-autocomplete="list"
-              aria-controls={listboxId}
-              aria-describedby={hasError ? `${id}-error` : undefined}
-            />
-          ) : (
-            <span className="block w-full h-full pl-3 pr-2 py-3 select-none truncate">
-              {displayLabel || placeholder || '\u00A0'}
-            </span>
-          )}
-
+          <div className="flex-1 flex flex-wrap items-center gap-1 pl-3">
+              {multiple && hasValue && (
+                  Array.from(selectedKeySet).map((k) => {
+                      const val = keyToValue.get(k);
+                      return (
+                          <span
+                              key={k}
+                              className={clsx(
+                                  'badge badge-sm badge-primary badge-outline flex items-center gap-1',
+                                  classNames.chip
+                              )}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                  e.stopPropagation();
+                                  applySelection({ value: val, disabled: false });
+                              }}
+                          >
+                              {getLabelForValue(val)}
+                              <X className="h-2.5 w-2.5 cursor-pointer" />
+                          </span>
+                      );
+                  })
+              )}
+              {searchable ? (
+                  <input
+                      id={id}
+                      ref={inputRef}
+                      type="text"
+                      autoComplete="off"
+                      disabled={disabled}
+                      className={clsx(
+                          'flex-1 min-w-[3rem] bg-transparent border-none outline-none appearance-none p-0 focus:outline-none focus:ring-0 focus:border-0',
+                          (multiple && hasValue) ? '' : 'px-3 py-3'
+                      )}
+                      value={query}
+                      placeholder={hasValue && multiple ? '' : placeholder || ''}
+                      onChange={(e) => {
+                          setQuery(e.target.value);
+                          if (!open) setOpen(true);
+                          updateQuery(e.target.value);
+                      }}
+                      onFocus={(e) => {
+                          e.stopPropagation();
+                          setFocused(true);
+                          setOpen(true);
+                      }}
+                      onBlur={() => {
+                          setFocused(false);
+                          if (name) helpers.setTouched(true);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={handleKeyDown}
+                      aria-autocomplete="list"
+                      aria-controls={listboxId}
+                      aria-describedby={hasError ? `${id}-error` : undefined}
+                  />
+              ) : (
+                  <span className="block w-full h-full pl-3 pr-2 py-3 select-none truncate">
+                      {displayLabel || placeholder || '\u00A0'}
+                  </span>
+              )}
+          </div>
           {/* Right side icons */}
           {hasValue && !disabled ? (
             <button
@@ -377,16 +413,16 @@ export default function SelectField({
           ) : isLoading ? (
             <Loader2 className="h-5 w-5 mr-3 animate-spin text-gray-400" />
           ) : (
-            <ChevronDown
-              className={clsx(
-                'h-5 w-5 mr-3 transition-transform duration-200',
-                open && 'rotate-180'
-              )}
-            />
-          )}
+              <ChevronDown
+                className={clsx(
+                  'h-5 w-5 mr-3 transition-transform duration-200',
+                  open && 'rotate-180'
+                )}
+              />
+            )}
         </div>
 
-        {/* Floating label: background matches the wrapper so it visually 'floats' cleanly */}
+        {/* Floating label */}
         <label
           htmlFor={id}
           className={clsx(
@@ -394,7 +430,6 @@ export default function SelectField({
             !showFloatingLabel && 'top-1/2 -translate-y-1/2 text-sm opacity-90',
             showFloatingLabel && '-top-2.5 translate-y-0 text-xs px-1 rounded',
             hasError ? 'text-error' : 'text-base-content/70',
-            // put label above input text so it does not clip, small z-index
             'bg-white z-10'
           )}
         >
@@ -456,30 +491,6 @@ export default function SelectField({
         <p id={`${id}-error`} className={clsx('text-red-500 text-xs mt-1', classNames.error)}>
           {meta.error}
         </p>
-      )}
-
-      {/* multiple chips */}
-      {multiple && hasValue && (
-        <div className="mt-2 flex flex-wrap gap-2">
-          {Array.from(selectedKeySet).map((k) => {
-            const val = keyToValue.get(k);
-            return (
-              <span
-                key={k}
-                className={clsx(
-                  'badge badge-primary badge-outline flex items-center gap-1',
-                  classNames.chip
-                )}
-              >
-                {getLabelForValue(val)}
-                <X
-                  className="h-3 w-3 cursor-pointer"
-                  onClick={() => applySelection({ value: val, disabled: false })}
-                />
-              </span>
-            );
-          })}
-        </div>
       )}
     </div>
   );

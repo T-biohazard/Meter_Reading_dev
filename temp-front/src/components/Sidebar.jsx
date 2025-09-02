@@ -80,9 +80,6 @@ export default function Sidebar({ collapsed, setCollapsed }) {
         </div>
 
         {/* Search */}
-
-
-
         
         {!collapsed && (
           <FormikProvider value={searchForm}>
@@ -111,7 +108,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
         ) : q.trim() ? (
           <SearchResults results={results} />
         ) : (
-          <Tree tree={activeTree} />
+          <ControlledTree tree={activeTree} /> // <-- Use the new component
         )}
       </div>
     </aside>
@@ -153,26 +150,41 @@ function SearchResults({ results }) {
   );
 }
 
+// Top-level wrapper for the controlled tree
+function ControlledTree({ tree }) {
+    const [openItem, setOpenItem] = useState(null);
+
+    const handleToggle = (label) => {
+        setOpenItem(openItem === label ? null : label);
+    };
+
+    return <Tree tree={tree} depth={0} openItem={openItem} onToggle={handleToggle} />;
+}
+
 /* Nested tree with icons */
-function Tree({ tree, depth = 0 }) {
+function Tree({ tree, depth = 0, openItem, onToggle }) {
   return (
     <ul className="space-y-0.5">
       {(tree || []).map((node) => {
         const hasKids = Array.isArray(node.children) && node.children.length > 0;
         const Icon = node.Icon;          // static menu support
         const fa = node.icon || null;    // dynamic FA string
+        const isOpen = openItem === node.label;
 
         if (hasKids) {
           return (
             <li key={`${node.label}-${depth}`}>
-              <details className="group">
+              <details className="group" open={isOpen}>
                 <summary
                   className="list-none h-8 flex items-center gap-2 px-2 rounded-md cursor-pointer
                              hover:bg-base-300/50 select-none
                              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  onClick={(e) => {
+                    e.preventDefault(); // <-- Prevent native behavior
+                    onToggle(node.label);
+                  }}
                 >
                   <IconRenderer Icon={depth === 0 ? Icon : undefined} fa={fa} />
-                  {/* take remaining width and clamp to 2 lines */}
                   <span className="twoline flex-1 min-w-0 font-medium" title={node.label}>
                     {node.label}
                   </span>
@@ -180,7 +192,7 @@ function Tree({ tree, depth = 0 }) {
                 </summary>
 
                 <div className="ml-3 pl-3 border-l border-base-300/50">
-                  <Tree tree={node.children} depth={depth + 1} />
+                  <Tree tree={node.children} depth={depth + 1} openItem={openItem} onToggle={onToggle} />
                 </div>
               </details>
             </li>
@@ -212,7 +224,6 @@ function Tree({ tree, depth = 0 }) {
                 }
               >
                 <IconRenderer fa={fa} />
-                {/* two-line label with proper width calc */}
                 <span className="twoline flex-1 min-w-0" title={node.label}>{node.label}</span>
               </NavLink>
             )}

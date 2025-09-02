@@ -1,95 +1,124 @@
-import React from 'react';
-import { Formik, Form, Field, ErrorMessage } from 'formik';
-import * as Yup from 'yup';
+// src/components/forms/RackForm.jsx
+import React, { useState, useEffect } from "react";
 import Button from '../ui/Button';
+import { useFormik, FormikProvider } from "formik";
+import { rackSchema } from '../../validations/rackValidation';
+import InputField from "../fields/InputField";
+import SelectField from "../fields/SelectField";
+import { ArrowLeft } from 'lucide-react';
 import { useFastApi } from '../../hooks/fastapihooks/fastapihooks';
-import { Plus, X } from 'lucide-react';
 
-const RackForm = ({ initialValues, isEditMode, onSubmit, onCancel, showToast }) => {
-  const api = useFastApi();
-
-  // Define validation schema based on API requirements
-  const validationSchema = Yup.object().shape({
-    datacenter_id: Yup.number()
-      .integer('Datacenter ID must be an integer')
-      .required('Datacenter ID is required'),
-    rack_name: Yup.string()
-      .required('Rack name is required'),
-    status: Yup.string()
-      .oneOf(['active', 'inactive', 'maintenance'], 'Invalid status') // Assuming these are valid statuses
-      .required('Status is required'),
-  });
-
-  const handleSubmit = async (values, actions) => {
-    try {
-      // The API has different payloads for create and update.
-      // For create, it needs datacenter_id, rack_name, and status.
-      // For update, it only needs rack_name and status.
-      let payload = {
-        rack_name: values.rack_name,
-        status: values.status,
-      };
-
-      // Add datacenter_id only in create mode
-      if (!isEditMode) {
-        payload = { ...payload, datacenter_id: values.datacenter_id };
-      }
-
-      await onSubmit(payload, actions);
-    } catch (error) {
-      showToast(error.message || 'An error occurred during save.', 'error');
-    }
-  };
-
-  return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold mb-4">{isEditMode ? 'Edit Rack' : 'Add Rack'}</h1>
-      <Formik
-        initialValues={initialValues || { datacenter_id: '', rack_name: '', status: 'active' }}
-        validationSchema={validationSchema}
-        onSubmit={handleSubmit}
-        // Enable re-initialization to handle initialValues changes for edit mode
-        enableReinitialize={true}
-      >
-        {({ isSubmitting }) => (
-          <Form className="space-y-4">
-            {!isEditMode && (
-              <div>
-                <label htmlFor="datacenter_id" className="block text-sm font-medium text-gray-700">Datacenter ID</label>
-                <Field name="datacenter_id" type="number" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-                <ErrorMessage name="datacenter_id" component="div" className="text-red-500 text-sm" />
-              </div>
-            )}
-            
-            <div>
-              <label htmlFor="rack_name" className="block text-sm font-medium text-gray-700">Rack Name</label>
-              <Field name="rack_name" type="text" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-              <ErrorMessage name="rack_name" component="div" className="text-red-500 text-sm" />
-            </div>
-
-            <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
-              <Field as="select" name="status" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="maintenance">Maintenance</option>
-              </Field>
-              <ErrorMessage name="status" component="div" className="text-red-500 text-sm" />
-            </div>
-
-            <div className="flex gap-4">
-              <Button type="submit" intent="primary" disabled={isSubmitting} leftIcon={isEditMode ? null : Plus}>
-                {isEditMode ? 'Save Changes' : 'Add Rack'}
-              </Button>
-              <Button type="button" intent="ghost" onClick={onCancel} leftIcon={X}>
-                Cancel
-              </Button>
-            </div>
-          </Form>
-        )}
-      </Formik>
-    </div>
-  );
+const defaultFormValues = {
+  datacenter_id: null,
+  rack_name: "",
+  status: "",
 };
 
-export default RackForm;
+export default function RackForm({ initialValues, isEditMode, onSubmit, onCancel }) {
+  const api = useFastApi();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [datacenterOptions, setDatacenterOptions] = useState([]);
+
+  useEffect(() => {
+    const fetchDatacenters = async () => {
+      try {
+        const data = await api.listDatacenters();
+        const options = data.map(dc => ({ label: dc.datacenter_name, value: dc.id }));
+        setDatacenterOptions(options);
+      } catch (err) {
+        console.error("Failed to fetch datacenters:", err);
+      }
+    };
+    fetchDatacenters();
+  }, [api]);
+
+  const formik = useFormik({
+    initialValues: defaultFormValues,
+    validationSchema: rackSchema(isEditMode),
+    onSubmit: async (values) => {
+      setIsSubmitting(true);
+      try {
+        const payload = Object.fromEntries(
+          Object.entries(values).filter(([_, v]) => v !== null && v !== "")
+        );
+        await onSubmit(payload, {
+          resetForm: () => formik.resetForm({ values: defaultFormValues }),
+        });
+      } catch (error) {
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+  });
+
+  useEffect(() => {
+    // This hook now depends on datacenterOptions, ensuring it only runs after data is fetched.
+    if (isEditMode && initialValues && datacenterOptions.length > 0) {
+      formik.setValues({
+        datacenter_id: initialValues.datacenter_id || null,
+        rack_name: initialValues.rack_name || "",
+        status: initialValues.status || "",
+      });
+    }
+  }, [isEditMode, initialValues, formik.setValues, datacenterOptions]); // Added datacenterOptions to dependencies
+
+  const statusOptions = [
+    { label: "Active", value: "active" },
+    { label: "Inactive", value: "inactive" },
+  ];
+
+  return (
+    <div className='p-t4'>
+      <div className="flex items-center space-x-2">
+        <Button
+          variant="icon"
+          type="button"
+          onClick={onCancel}
+          className="p-1 -ml-2 mt-1 text-gray-500 hover:text-gray-700"
+        >
+          <ArrowLeft size={24} />
+        </Button>
+        <h1 className='text-2xl font-bold mt-2'>
+          {isEditMode ? "Edit Rack" : "Add Rack"}
+        </h1>
+      </div>
+      <p className="opacity-70 mb-16">View and Manage the list of Racks.</p>
+      <FormikProvider value={formik}>
+        <form className='grid grid-cols-1 md:grid-cols-2 gap-4' onSubmit={formik.handleSubmit}>
+          <SelectField
+            name="datacenter_id"
+            label="Datacenter"
+            options={datacenterOptions}
+            searchable
+            disabled={datacenterOptions.length === 0 || isEditMode}
+          />
+          <InputField
+            name="rack_name"
+            type="text"
+            label="Rack Name"
+          />
+          <SelectField
+            name="status"
+            label="Status"
+            options={statusOptions}
+            searchable
+          />
+          <div className='flex w-full justify-end mt-4 space-x-2 col-span-full'>
+            <Button intent="cancel" type='button' onClick={onCancel} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              intent="submit"
+              type='submit'
+              loading={isSubmitting}
+              loadingText='Saving...'
+              disabled={isSubmitting || !formik.isValid}
+            >
+              Save
+            </Button>
+          </div>
+        </form>
+      </FormikProvider>
+    </div>
+  );
+}

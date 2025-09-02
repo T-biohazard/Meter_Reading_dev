@@ -1,31 +1,32 @@
-// src/pages/CustomerDashboard.jsx
+// src/pages/DatacenterDashboard.jsx
+
 import DataTable from '../components/table/DataTable';
 import { useFastApi } from '../hooks/fastapihooks/fastapihooks';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Button from '../components/ui/Button';
 import ToastContainer from '../components/ui/ToastContainer';
-import CustomerForm from '../components/customer/CustomerForm';
+import DatacenterForm from '../components/datacenter/DatacenterForm';
 import { Plus, Pencil, Trash2 } from "lucide-react";
-import ExportButton from '../components/ui/ExportButton'; // Import the new ExportButton component
+import ExportButton from '../components/ui/ExportButton';
 import { FaFileExcel } from 'react-icons/fa';
-import FilterMenu from '../components/table/FilterMenu'; // 👈 Import the FilterMenu component
+import FilterMenu from '../components/table/FilterMenu';
 import InputField from '../components/fields/InputField';
 import SelectField from '../components/fields/SelectField';
 
 /**
- * Customer dashboard component with full CRUD functionality.
+ * Datacenter dashboard component with full CRUD functionality.
  */
-export default function CustomerDashboard() {
+export default function DatacenterDashboard() {
   const api = useFastApi();
-  const [customers, setCustomers] = useState([]);
+  const [datacenters, setDatacenters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [editingDatacenter, setEditingDatacenter] = useState(null);
   const [toasts, setToasts] = useState([]);
-  const [filters, setFilters] = useState({}); // 👈 Add state for filters
-  const [query, setQuery] = useState(''); // 👈 Add state for search query
+  const [filters, setFilters] = useState({});
+  const [query, setQuery] = useState('');
 
   const removeToast = (id) => {
     setToasts((currentToasts) => currentToasts.filter((t) => t.id !== id));
@@ -35,51 +36,51 @@ export default function CustomerDashboard() {
     const newToast = { id: Date.now(), message, type };
     setToasts((currentToasts) => [...currentToasts, newToast]);
     setTimeout(() => {
-      setToasts((currentsToasts) => currentsToasts.filter((t) => t.id !== newToast.id));
+      setToasts((currentToasts) => currentToasts.filter((t) => t.id !== newToast.id));
     }, 5000);
   }, []);
 
-  const fetchCustomers = useCallback(async () => {
+  const fetchDatacenters = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.listCustomers();
-      setCustomers(data);
+      const data = await api.listDatacenters();
+      setDatacenters(data);
     } catch (err) {
-      console.error("Failed to fetch customers:", err);
+      console.error("Failed to fetch datacenters:", err);
       setError(err.message);
-      showToast("Failed to fetch customers.", "error");
+      showToast("Failed to fetch datacenters.", "error");
     } finally {
       setLoading(false);
     }
   }, [api, showToast]);
 
   useEffect(() => {
-    fetchCustomers();
-  }, [fetchCustomers]);
+    fetchDatacenters();
+  }, [fetchDatacenters]);
 
   const openNewForm = () => {
     setIsEditMode(false);
-    setEditingCustomer(null);
+    setEditingDatacenter(null);
     setAddOpen(true);
   };
 
-  const handleEdit = (customer) => {
+  const handleEdit = (datacenter) => {
     setIsEditMode(true);
-    setEditingCustomer(customer);
+    setEditingDatacenter(datacenter);
     setAddOpen(true);
   };
 
-  const handleDelete = async (customerId) => {
-    if (window.confirm("Are you sure you want to delete this customer?")) {
+  const handleDelete = async (datacenterId) => {
+    if (window.confirm("Are you sure you want to delete this datacenter?")) {
       try {
-        await api.deleteCustomer(customerId);
-        showToast("Customer deleted successfully.", "success");
+        await api.deleteDatacenter(datacenterId);
+        showToast("Datacenter deleted successfully.", "success");
       } catch (err) {
-        showToast("Failed to delete customer.", "error");
+        showToast("Failed to delete datacenter.", "error");
         console.error("Delete failed:", err);
       } finally {
-        fetchCustomers();
+        fetchDatacenters();
       }
     }
   };
@@ -87,26 +88,24 @@ export default function CustomerDashboard() {
   const handleFormSubmit = async (values, { resetForm }) => {
     try {
       if (isEditMode) {
-        await api.updateCustomer(editingCustomer.id, values);
-        showToast("Customer updated successfully.", "success");
+        await api.updateDatacenter(editingDatacenter.id, values);
+        showToast("Datacenter updated successfully.", "success");
       } else {
-        await api.createCustomer(values);
-        showToast("Customer created successfully.", "success");
+        await api.createDatacenter(values);
+        showToast("Datacenter created successfully.", "success");
       }
     } catch (err) {
       showToast(err.message || "Save failed.", "error");
     } finally {
-      fetchCustomers();
+      fetchDatacenters();
       resetForm();
       setAddOpen(false);
     }
   };
 
-  const customerColumns = useMemo(() => [
-    { key: 'customer', header: 'Customer Name', field: InputField },
-    { key: 'formula_billing_id', header: 'Billing Formula', align: 'center', field: InputField },
-    { key: 'threshold', header: 'Threshold', field: InputField, fieldProps: { type: 'number', placeholder: 'Min value' } },
-    { key: 'grace_value', header: 'Grace Value', field: InputField },
+  // 👈 Update column definitions to include `field` and `fieldProps`
+  const datacenterColumns = useMemo(() => [
+    { key: 'datacenter_name', header: 'Datacenter Name', field: InputField },
     { 
       key: 'status', 
       header: 'Status', 
@@ -134,13 +133,13 @@ export default function CustomerDashboard() {
     },
   ], [handleEdit, handleDelete]);
 
-  const filteredCustomers = useMemo(() => {
-    let result = customers;
+  const filteredDatacenters = useMemo(() => {
+    let result = datacenters;
     
     if (query.trim()) {
       const q = query.toLowerCase();
       result = result.filter(row =>
-        customerColumns.some(c =>
+        datacenterColumns.some(c =>
           String(row[c.key] ?? "").toLowerCase().includes(q)
         )
       );
@@ -152,21 +151,18 @@ export default function CustomerDashboard() {
           if (key === 'status') {
             return String(row[key]).toLowerCase() === String(value).toLowerCase();
           }
-          if (key === 'threshold') {
-            return Number(row[key]) >= Number(value);
-          }
           return String(row[key] || '').toLowerCase().includes(String(value).toLowerCase());
         });
       });
     }
     
     return result;
-  }, [customers, query, filters, customerColumns]);
+  }, [datacenters, query, filters, datacenterColumns]);
 
   if (addOpen) {
     return (
-      <CustomerForm
-        initialValues={editingCustomer}
+      <DatacenterForm
+        initialValues={editingDatacenter}
         isEditMode={isEditMode}
         onSubmit={handleFormSubmit}
         onCancel={() => setAddOpen(false)}
@@ -179,32 +175,29 @@ export default function CustomerDashboard() {
     <div className=''>
       <div className='flex justify-between items-center pb-16'>
         <div>
-          <h1 className='text-2xl font-bold'>Customers</h1>
-          <p className="opacity-70">View and Manage the list of Customers.</p>
+          <h1 className='text-2xl font-bold'>Datacenters</h1>
+          <p className="opacity-70">View and Manage the list of Datacenters.</p>
         </div>
-        
         <div className="flex items-center gap-4">
-          <FilterMenu columns={customerColumns} onFilterChange={setFilters} />
+          <FilterMenu columns={datacenterColumns} onFilterChange={setFilters} />
           <ExportButton 
-            data={customers} 
-            columns={customerColumns} 
-            fileName="customers" 
-            intent="primary" 
-            leftIcon={FaFileExcel} 
+            data={datacenters} 
+            columns={datacenterColumns} 
+            fileName="datacenters" 
+            intent="primary"
+            leftIcon={FaFileExcel}
             className="text-white-500  bg-green-700 hover:bg-green-800 border-none"
           >
             Export
           </ExportButton>
-          
           <Button intent="primary" onClick={openNewForm} leftIcon={Plus}>
-            Add Customer
+            Add Datacenter
           </Button>
         </div>
       </div>
-
       {loading ? (
         <div className="flex justify-center items-center py-20 text-gray-500">
-          <p>Loading customers...</p>
+          <p>Loading datacenters...</p>
         </div>
       ) : error ? (
         <div className="flex justify-center items-center py-20 text-red-500">
@@ -212,14 +205,13 @@ export default function CustomerDashboard() {
         </div>
       ) : (
         <DataTable
-          title="Customer Records"
-          data={filteredCustomers}
-          columns={customerColumns}
+          title="Datacenter Records"
+          data={filteredDatacenters}
+          columns={datacenterColumns}
           searchable={true}
           selection={true}
         />
       )}
-
       <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );

@@ -1,33 +1,28 @@
-// src/components/forms/CustomerForm.jsx
 import React, { useState, useEffect } from "react";
 import Button from '../ui/Button';
 import { useFormik, FormikProvider } from "formik";
-import { customerSchema } from '../../validations/customerValidation';
+import { datacenterSchema } from '../../validations/datacenterValidation';
 import InputField from "../fields/InputField";
 import SelectField from "../fields/SelectField";
-import { ArrowLeft } from 'lucide-react'; // Added ArrowLeft import
+import { ArrowLeft } from 'lucide-react';
 
 const defaultFormValues = {
-  customer: "",
-  formula_billing_id: null,
-  threshold: null,
-  grace_value: null,
-  status: "",
+  datacenter_name: "",
+  status: "", // Default status for new records
 };
 
-export default function CustomerForm({ initialValues, isEditMode, onSubmit, onCancel }) {
+export default function DatacenterForm({ initialValues, isEditMode, onSubmit, onCancel }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formik = useFormik({
     initialValues: defaultFormValues,
-    validationSchema: customerSchema(isEditMode),
+    validationSchema: datacenterSchema(isEditMode),
     onSubmit: async (values) => {
       setIsSubmitting(true);
       try {
         const payload = Object.fromEntries(
-          Object.entries(values).filter(([_, v]) => v !== null && v !== "")
+          Object.entries(values).filter(([_, v]) => v !== null && v !== "" && v !== undefined)
         );
-
         await onSubmit(payload, {
           resetForm: () => formik.resetForm({ values: defaultFormValues }),
         });
@@ -41,22 +36,11 @@ export default function CustomerForm({ initialValues, isEditMode, onSubmit, onCa
   useEffect(() => {
     if (isEditMode && initialValues) {
       formik.setValues({
-        customer: initialValues.customer || "",
-        formula_billing_id: initialValues.formula_billing_id || null,
-        threshold: initialValues.threshold || null,
-        grace_value: initialValues.grace_value || null,
-        status: initialValues.status || "",
+        datacenter_name: initialValues.datacenter_name || "",
+        status: initialValues.status || "active",
       });
     }
   }, [isEditMode, initialValues, formik.setValues]);
-
-  const billingFormulaOptions = [
-    { label: "Formula A", value: 101 },
-    { label: "Formula B", value: 102 },
-    { label: "Formula C", value: 103 },
-    { label: "Formula D", value: 104 },
-    { label: "Formula E", value: 105 },
-  ];
 
   const statusOptions = [
     { label: "Active", value: "active" },
@@ -65,51 +49,33 @@ export default function CustomerForm({ initialValues, isEditMode, onSubmit, onCa
 
   return (
     <div className='p-t4'>
-      <div className="flex items-center space-x-2"> {/* New flex container */}
+      <div className="flex items-center space-x-2">
         <Button
           variant="icon"
           type="button"
-          onClick={onCancel} // Assuming onCancel handles navigation back
+          onClick={onCancel}
           className="p-1 -ml-2 mt-1 text-gray-500 hover:text-gray-700"
         >
           <ArrowLeft size={24} />
         </Button>
         <h1 className='text-2xl font-bold mt-2'>
-          {isEditMode ? "Edit Customer" : "Add Customer"}
+          {isEditMode ? "Edit Datacenter" : "Add Datacenter"}
         </h1>
       </div>
-      <p className="opacity-70 mb-16">View and Manage the list of Customers.</p>
+      <p className="opacity-70 mb-16">View and Manage the list of Datacenters.</p>
       <FormikProvider value={formik}>
         <form className='grid grid-cols-1 md:grid-cols-2 gap-4' onSubmit={formik.handleSubmit}>
           <InputField
-            name="customer"
+            name="datacenter_name"
             type="text"
-            label="Customer Name"
-          />
-          <SelectField
-            name="formula_billing_id"
-            label="Billing Formula"
-            options={billingFormulaOptions}
-            searchable
-          />
-          <InputField
-            name="threshold"
-            type="number"
-            step="0.01"
-            label="Threshold"
-          />
-          <InputField
-            name="grace_value"
-            type="number"
-            step="0.01"
-            label="Grace Value"
+            label="Datacenter Name"
           />
           <SelectField
             name="status"
             label="Status"
             options={statusOptions}
             searchable
-          />
+            />
           <div className='flex w-full justify-end mt-4 space-x-2 col-span-full'>
             <Button intent="cancel" type='button' onClick={onCancel} disabled={isSubmitting}>
               Cancel

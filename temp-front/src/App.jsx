@@ -16,6 +16,8 @@ import { UserManagement } from "./components/users/UserManagement"; // New: Impo
 import RolesPermissionsPage from "./pages/RolesPermissionsPage"; // New: Import the RolesPermissionsPage
 import PermissionsPage from "./pages/PermissionsPage";
 import CustomerDashboard from "./pages/CustomerDashboard";
+import DatacenterDashboard from "./pages/DatacenterDashboard";
+import MeterDashboard from "./pages/MeterDashboard";
 // New: Create a client for React Query. This manages caching and data state.
 
 import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
@@ -52,6 +54,7 @@ export default function App() {
               <Route path="settings" element={<ButtonShowcase />} />
               <Route path="customer" element={<CustomerDashboard />} />
               <Route path="rack" element={<RackDashboard />} />
+              <Route path="meter" element={<MeterDashboard />} />
               {/* Protected routes that require authentication */}
               <Route element={<ProtectedRoute />}>
                 <Route path="dashboard" element={<Dashboard />} />
@@ -59,6 +62,7 @@ export default function App() {
                 <Route path="users" element={<UserManagement />} />
                 <Route path="roles" element={<RolesPermissionsPage />} />
                 <Route path="permissions" element={<PermissionsPage />} />
+                <Route path="datacenter" element={<DatacenterDashboard />} />
               </Route>
 
               {/* 404 - Not Found */}
