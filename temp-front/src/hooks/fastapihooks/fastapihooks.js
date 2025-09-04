@@ -1,6 +1,7 @@
+// src/hooks/fastapihooks/fastapihooks.js
 import { useMemo } from 'react';
 import FastApiService from '../../services/fastApi/FastApiService';
-import { useAuth } from '../../app/AuthContext'
+import { useAuth } from '../../app/AuthContext';
 
 /**
  * A custom hook to expose a memoized API client for the FastAPI backend.
@@ -62,6 +63,10 @@ export function useFastApi() {
         createFormulaBilling: () => Promise.resolve(null),
         updateFormulaBilling: () => Promise.resolve(null),
         deleteFormulaBilling: () => Promise.resolve(null),
+
+        // Meter Readings (NEW)
+        listMeterReadings: () => Promise.resolve([]),
+        createMeterReading: () => Promise.resolve(null),
       };
     }
 
@@ -108,6 +113,10 @@ export function useFastApi() {
       createFormulaBilling: (payload) => FastApiService.createFormulaBilling(payload, token),
       updateFormulaBilling: (fbId, payload) => FastApiService.updateFormulaBilling(fbId, payload, token),
       deleteFormulaBilling: (fbId) => FastApiService.deleteFormulaBilling(fbId, token),
+      
+      // Meter Readings (NEW)
+      listMeterReadings: (skip, limit) => FastApiService.listMeterReadings(skip, limit, token),
+      // createMeterReading: (payload) => FastApiService.createMeterReading(payload, token),
     };
   }, [token]);
 

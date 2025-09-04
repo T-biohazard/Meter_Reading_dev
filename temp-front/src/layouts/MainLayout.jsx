@@ -20,7 +20,7 @@ export default function MainLayout() {
           <Navbar />
 
           {/* Let main grow so the footer stays at the bottom */}
-          <main className="container mx-auto max-w-[1580px] py-8 grow">
+          <main className="container mx-auto max-w-[1600px] py-8 grow">
             <Outlet />
           </main>
 

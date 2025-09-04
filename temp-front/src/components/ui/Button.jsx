@@ -9,7 +9,7 @@ import { twMerge } from "tailwind-merge";
  * Props:
  * - intent: "ok" | "cancel" | "submit" | "next" | "back" | "delete" | "save"
  * - variant: "primary" | "secondary" | "success" | "danger" | "warning" | "info" | "neutral" | "ghost" | "outline" | "subtle" | "link" | "icon"
- * (If both intent and variant are provided, intent wins unless variant is explicit different)
+ * - toggled: boolean (Adds specific styles for a toggled state, overriding variant)
  * - size: "xs" | "sm" | "md" | "lg" (default: "md")
  * - leftIcon, rightIcon: React components (e.g., from lucide-react)
  * - loading: boolean (shows spinner and disables)
@@ -30,6 +30,7 @@ import { twMerge } from "tailwind-merge";
  * <Button to="/next" rightIcon={ArrowRight}>Next</Button>
  * <Button loading loadingText="Saving...">Save</Button>
  * <Button iconOnly aria-label="Add" variant="icon" leftIcon={Plus} />
+ * <Button toggled={isToggled}>Toggle Me</Button>
  */
 
 const intentToVariant = {
@@ -42,7 +43,6 @@ const intentToVariant = {
   save: "primary",
 };
 
-// **Updated variantClasses with a new 'icon' variant**
 const variantClasses = {
   primary: "btn-primary",
   secondary: "btn-secondary",
@@ -55,8 +55,12 @@ const variantClasses = {
   outline: "btn-outline",
   link: "btn-link",
   subtle: "bg-base-200 border border-base-300 text-base-content hover:bg-base-300",
-  // New 'icon' variant for transparent, no-bg-color buttons
   icon: "bg-transparent border-none text-gray-600 hover:bg-gray-200",
+};
+
+const toggledClasses = {
+  on: 'bg-blue-600 text-white hover:bg-blue-700 border-transparent',
+  off: 'bg-white text-blue-500 border-2 border-blue-400 hover:bg-gray-50',
 };
 
 const sizeClasses = {
@@ -66,7 +70,6 @@ const sizeClasses = {
   lg: "btn-lg",
 };
 
-// tailwind-merge + clsx
 const cx = (...args) => twMerge(clsx(...args));
 
 const Button = forwardRef(
@@ -74,6 +77,7 @@ const Button = forwardRef(
     {
       intent,
       variant,
+      toggled,
       size = "md",
       leftIcon: LeftIcon,
       rightIcon: RightIcon,
@@ -94,7 +98,9 @@ const Button = forwardRef(
   ) => {
     // resolve variant via intent alias
     const resolvedVariant =
-      intent && !variant ? intentToVariant[intent] ?? "primary" : variant ?? "primary";
+      intent && !variant && toggled === undefined
+        ? intentToVariant[intent] ?? "primary"
+        : variant ?? "primary";
 
     const Comp = to ? Link : href ? "a" : "button";
 
@@ -130,6 +136,22 @@ const Button = forwardRef(
       </>
     );
 
+    const buttonClasses = cx(
+      "btn no-animation", // keep it snappy; daisyUI base
+      toggled !== undefined ? toggledClasses[toggled ? 'on' : 'off'] : (variantClasses[resolvedVariant] || variantClasses.primary),
+      sizeClasses[size],
+      block && "w-full",
+      iconOnly && "btn-square",
+      joined && "join-item",
+      // calm focus (match your input decision: no bold border)
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+      // make disabled cursor consistent for <a>/<Link> too
+      isDisabled && "pointer-events-none",
+      // small polish
+      "whitespace-nowrap",
+      className
+    );
+
     return (
       <Comp
         ref={ref}
@@ -138,25 +160,7 @@ const Button = forwardRef(
         type={Comp === "button" ? type ?? "button" : undefined}
         disabled={Comp === "button" ? isDisabled : undefined}
         aria-disabled={Comp !== "button" && isDisabled ? true : undefined}
-        className={cx(
-          "btn no-animation", // keep it snappy; daisyUI base
-          variantClasses[resolvedVariant] || variantClasses.primary,
-          sizeClasses[size],
-          block && "w-full",
-          iconOnly && "btn-square",
-          joined && "join-item",
-
-          // calm focus (match your input decision: no bold border)
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-
-          // make disabled cursor consistent for <a>/<Link> too
-          isDisabled && "pointer-events-none",
-
-          // small polish
-          "whitespace-nowrap",
-
-          className
-        )}
+        className={buttonClasses}
         {...rest}
       >
         {content}

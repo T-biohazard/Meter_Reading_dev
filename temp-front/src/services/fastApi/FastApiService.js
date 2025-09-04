@@ -1,3 +1,4 @@
+// src/services/fastApi/FastApiService.js
 /**
  * @fileoverview FastApiService: a dedicated service for handling API communication
  * with the FastAPI backend.
@@ -84,6 +85,11 @@ const FastApiService = {
   createFormulaBilling: async (payload, token = null) => apiRequest("/formula-billing/", { method: "POST", body: JSON.stringify(payload) }, token),
   updateFormulaBilling: async (fbId, payload, token = null) => apiRequest(`/formula-billing/${fbId}`, { method: "PUT", body: JSON.stringify(payload) }, token),
   deleteFormulaBilling: async (fbId, token = null) => apiRequest(`/formula-billing/${fbId}`, { method: "DELETE" }, token),
+
+  // ===== Meter Readings Endpoints (NEW) =====
+  listMeterReadings: async (skip = 0, limit = 10, token = null) => apiRequest(`/meter_readings_1/?skip=${skip}&limit=${limit}`, { method: "GET" }, token),
+  // createMeterReading: async (payload, token = null) => apiRequest("/meter_readings_1/", { method: "POST", body: JSON.stringify(payload) }, token),
+
 };
 
 export default FastApiService;
