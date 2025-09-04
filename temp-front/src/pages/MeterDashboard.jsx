@@ -30,6 +30,10 @@ export default function MeterDashboard() {
   const [rackOptions, setRackOptions] = useState([]);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
+  // Store the fetched datacenters and racks in state for lookup
+  const [allDatacenters, setAllDatacenters] = useState([]);
+  const [allRacks, setAllRacks] = useState([]);
+
   const removeToast = (id) => {
     setToasts((currentToasts) => currentToasts.filter((t) => t.id !== id));
   };
@@ -42,25 +46,12 @@ export default function MeterDashboard() {
     }, 5000);
   }, []);
 
-  const fetchMeters = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await api.listMeters();
-      setMeters(data);
-    } catch (err) {
-      console.error("Failed to fetch meters:", err);
-      setError(err.message);
-      showToast("Failed to fetch meters.", "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [api, showToast]);
-
   const fetchDependencies = useCallback(async () => {
     try {
       const datacenters = await api.listDatacenters();
       const racks = await api.listRacks();
+      setAllDatacenters(datacenters);
+      setAllRacks(racks);
       setDatacenterOptions(datacenters.map(dc => ({ label: dc.datacenter_name, value: dc.id })));
       setRackOptions(racks.map(rack => ({ label: rack.rack_name, value: rack.id })));
       setIsDataLoaded(true);
@@ -70,11 +61,46 @@ export default function MeterDashboard() {
     }
   }, [api, showToast]);
 
+  const fetchMeters = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [metersData, datacentersData, racksData] = await Promise.all([
+        api.listMeters(),
+        api.listDatacenters(),
+        api.listRacks()
+      ]);
+      
+      // Create lookup maps for performance
+      const datacenterMap = new Map(datacentersData.map(dc => [dc.id, dc.datacenter_name]));
+      const rackMap = new Map(racksData.map(rack => [rack.id, rack.rack_name]));
+      
+      const metersWithNames = metersData.map(meter => ({
+        ...meter,
+        datacenter_name: datacenterMap.get(meter.datacenter_id) || 'N/A',
+        rack_name: rackMap.get(meter.rack_id) || 'N/A'
+      }));
+      
+      setMeters(metersWithNames);
+      setAllDatacenters(datacentersData);
+      setAllRacks(racksData);
+      setDatacenterOptions(datacentersData.map(dc => ({ label: dc.datacenter_name, value: dc.id })));
+      setRackOptions(racksData.map(rack => ({ label: rack.rack_name, value: rack.id })));
+
+    } catch (err) {
+      console.error("Failed to fetch meters:", err);
+      setError(err.message);
+      showToast("Failed to fetch meters.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [api, showToast]);
+
   useEffect(() => {
     fetchMeters();
-    fetchDependencies();
-  }, [fetchMeters, fetchDependencies]);
-
+  }, [fetchMeters]);
+  
   const openNewForm = () => {
     setIsEditMode(false);
     setEditingMeter(null);
@@ -83,7 +109,9 @@ export default function MeterDashboard() {
 
   const handleEdit = (meter) => {
     setIsEditMode(true);
-    setEditingMeter(meter);
+    // When editing, pass the original meter object with IDs, as the form expects it.
+    const originalMeter = meters.find(m => m.id === meter.id);
+    setEditingMeter(originalMeter);
     setAddOpen(true);
   };
 
@@ -119,16 +147,17 @@ export default function MeterDashboard() {
     }
   };
 
-  // 👈 Update column definitions to include `field` and `fieldProps`
   const meterColumns = useMemo(() => [
     { 
-      key: 'datacenter_id', 
+      key: 'datacenter_name', 
       header: 'Datacenter Name',
+      // The `field` and `fieldProps` are for the form, so they should remain
+      // connected to the ID fields, but the table will display the name.
       field: SelectField,
       fieldProps: { options: datacenterOptions, searchable: true }
     },
     { 
-      key: 'rack_id', 
+      key: 'rack_name', 
       header: 'Rack Name',
       field: SelectField,
       fieldProps: { options: rackOptions, searchable: true }
@@ -209,6 +238,10 @@ export default function MeterDashboard() {
           if (key === 'datacenter_id' || key === 'rack_id') {
              return String(row[key]) === String(value);
           }
+          // The filter logic for names needs to be updated.
+          if (key === 'datacenter_name' || key === 'rack_name') {
+             return String(row[key] || '').toLowerCase().includes(String(value).toLowerCase());
+          }
           return String(row[key] || '').toLowerCase().includes(String(value).toLowerCase());
         });
       });
@@ -225,6 +258,8 @@ export default function MeterDashboard() {
         onSubmit={handleFormSubmit}
         onCancel={() => setAddOpen(false)}
         showToast={showToast}
+        datacenterOptions={datacenterOptions} // Pass options to the form
+        rackOptions={rackOptions} // Pass options to the form
       />
     );
   }

@@ -45,31 +45,37 @@ export default function RackDashboard() {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.listRacks();
-      setRacks(data);
+      // Fetch both racks and datacenters concurrently
+      const [racksData, datacentersData] = await Promise.all([
+        api.listRacks(),
+        api.listDatacenters()
+      ]);
+
+      // Create a map for quick datacenter name lookup
+      const datacenterMap = new Map(datacentersData.map(dc => [dc.id, dc.datacenter_name]));
+      
+      // Map the racks to include the datacenter name
+      const racksWithNames = racksData.map(rack => ({
+        ...rack,
+        datacenter_name: datacenterMap.get(rack.datacenter_id) || 'N/A'
+      }));
+
+      setRacks(racksWithNames);
+      // Set datacenter options for the form and filters
+      setDatacenterOptions(datacentersData.map(dc => ({ label: dc.datacenter_name, value: dc.id })));
     } catch (err) {
-      console.error("Failed to fetch racks:", err);
+      console.error("Failed to fetch data:", err);
       setError(err.message);
-      showToast("Failed to fetch racks.", "error");
+      showToast("Failed to fetch data.", "error");
     } finally {
       setLoading(false);
     }
   }, [api, showToast]);
 
-  // Fetch datacenter options for the filter dropdown
-  const fetchDatacenterOptions = useCallback(async () => {
-    try {
-      const data = await api.listDatacenters();
-      setDatacenterOptions(data.map(dc => ({ label: dc.datacenter_name, value: dc.id })));
-    } catch (err) {
-      console.error("Failed to fetch datacenter options:", err);
-    }
-  }, [api]);
 
   useEffect(() => {
     fetchRacks();
-    fetchDatacenterOptions();
-  }, [fetchRacks, fetchDatacenterOptions]);
+  }, [fetchRacks]);
 
   const openNewForm = () => {
     setIsEditMode(false);
@@ -79,7 +85,9 @@ export default function RackDashboard() {
 
   const handleEdit = (rack) => {
     setIsEditMode(true);
-    setEditingRack(rack);
+    // Pass the original rack object with ID for form submission
+    const originalRack = racks.find(r => r.id === rack.id);
+    setEditingRack(originalRack);
     setAddOpen(true);
   };
 
@@ -118,7 +126,7 @@ export default function RackDashboard() {
   // 👈 Update column definitions to include `field` and `fieldProps`
   const rackColumns = useMemo(() => [
     { 
-      key: 'datacenter_id', 
+      key: 'datacenter_name', 
       header: 'Datacenter Name',
       field: SelectField, 
       fieldProps: { options: datacenterOptions }
@@ -169,8 +177,11 @@ export default function RackDashboard() {
           if (key === 'status') {
             return String(row[key]).toLowerCase() === String(value).toLowerCase();
           }
-          if (key === 'datacenter_id') {
-             return String(row[key]) === String(value);
+          // Filter by datacenter_id when the filter is applied
+          if (key === 'datacenter_name') {
+             // Find the corresponding datacenter ID from options
+             const datacenterId = datacenterOptions.find(opt => opt.label.toLowerCase() === String(value).toLowerCase())?.value;
+             return String(row.datacenter_id) === String(datacenterId);
           }
           return String(row[key] || '').toLowerCase().includes(String(value).toLowerCase());
         });
@@ -178,7 +189,7 @@ export default function RackDashboard() {
     }
     
     return result;
-  }, [racks, query, filters, rackColumns]);
+  }, [racks, query, filters, rackColumns, datacenterOptions]);
 
   if (addOpen) {
     return (
@@ -188,6 +199,7 @@ export default function RackDashboard() {
         onSubmit={handleFormSubmit}
         onCancel={() => setAddOpen(false)}
         showToast={showToast}
+        datacenterOptions={datacenterOptions} // Pass datacenter options to the form
       />
     );
   }

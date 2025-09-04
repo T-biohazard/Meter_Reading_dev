@@ -1,7 +1,14 @@
 // src/components/fields/InputField.jsx
-import { useState, useId, useMemo } from "react";
+import React, {
+  useState,
+  useId,
+  useMemo,
+  useRef,
+  useEffect,
+  useCallback,
+} from 'react';
 import { useField } from "formik";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ChevronDown, XCircle } from "lucide-react";
 import clsx from "clsx";
 
 export default function InputField({
@@ -19,7 +26,7 @@ export default function InputField({
   floating = true,
   labelBgClass = "bg-base-200",
   muteFocus = true,
-  inputClassName, // 👈 Destructure inputClassName here
+  inputClassName,
 
   // dropdown props
   dropdown = false,
@@ -35,6 +42,9 @@ export default function InputField({
   const id = useId();
   const listboxId = `${id}-listbox`;
 
+  const inputRef = useRef(null);
+  const rootRef = useRef(null);
+
   const [showPwd, setShowPwd] = useState(false);
   const [isFocused, setFocused] = useState(false);
   const [open, setOpen] = useState(false);
@@ -48,29 +58,24 @@ export default function InputField({
   const hasValue =
     field.value !== undefined && field.value !== null && String(field.value).trim().length > 0;
 
-  const normalized = useMemo(
+  const normalizedOptions = useMemo(
     () =>
       (options || []).map((o) =>
         typeof o === "string" ? { label: o, value: o } : { label: o.label, value: o.value }
       ),
     [options]
   );
-  
-  const displayValue = useMemo(() => {
-    const selectedOption = normalized.find(opt => String(opt.value) === String(field.value));
-    return selectedOption ? selectedOption.label : field.value;
-  }, [field.value, normalized]);
 
   const query = String(field.value ?? "");
   const filtered = useMemo(() => {
     if (!dropdown) return [];
-    let list = normalized;
+    let list = normalizedOptions;
     if (filter && query.length >= minChars) {
       const q = query.toLowerCase();
-      list = normalized.filter((o) => o.label.toLowerCase().includes(q));
+      list = normalizedOptions.filter((o) => o.label.toLowerCase().includes(q));
     }
     return list.slice(0, maxItems);
-  }, [dropdown, normalized, filter, minChars, maxItems, query]);
+  }, [dropdown, normalizedOptions, filter, minChars, maxItems, query]);
 
   const listOpen = dropdown && open && filtered.length > 0;
 
@@ -81,8 +86,34 @@ export default function InputField({
     setOpen(false);
   };
 
+  const clearSelection = useCallback((e) => {
+    e.stopPropagation();
+    if (disabled) return;
+    helpers.setValue('');
+    helpers.setTouched(true, true);
+    if (inputRef.current) {
+        inputRef.current.focus();
+    }
+  }, [disabled, helpers]);
+
+  useEffect(() => {
+    const onOutside = (e) => {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(e.target)) {
+        setOpen(false);
+        setFocused(false);
+        if (name) helpers.setTouched(true);
+      }
+    };
+    if (open) {
+      document.addEventListener('mousedown', onOutside);
+      return () => document.removeEventListener('mousedown', onOutside);
+    }
+  }, [open, helpers, name]);
+
+
   return (
-    <div className={clsx("form-control mb-5", className)}>
+    <div ref={rootRef} className={clsx("form-control mb-5", className)}>
       <div className={clsx("relative isolate", listOpen && "mb-44")}>
         {LeftIcon ? (
           <LeftIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-60 pointer-events-none" />
@@ -90,7 +121,8 @@ export default function InputField({
 
         <input
           id={id}
-          value={dropdown ? displayValue : field.value}
+          ref={inputRef}
+          value={field.value}
           onChange={field.onChange}
           onBlur={(e) => {
             setFocused(false);
@@ -118,24 +150,44 @@ export default function InputField({
           className={clsx(
             "input input-bordered w-full rounded-lg bg-white transition-colors peer relative z-0",
             LeftIcon && "pl-9",
-            showPasswordToggle && type === "password" && "pr-10",
+            (showPasswordToggle && type === "password") || dropdown ? "pr-10" : "pr-4",
             muteFocus &&
               "focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-transparent !focus:border-base-300 !focus-visible:border-base-300 !shadow-none",
             showError && "input-error",
-            inputClassName // 👈 Apply inputClassName here
+            inputClassName
           )}
         />
 
-        {type === "password" && showPasswordToggle ? (
+        {/* Right-side Icons */}
+        {dropdown && hasValue && !disabled ? (
+          <button
+            type="button"
+            aria-label="Clear value"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-10"
+            onClick={clearSelection}
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            <XCircle className="h-5 w-5 text-gray-500 cursor-pointer" />
+          </button>
+        ) : type === "password" && showPasswordToggle ? (
           <button
             type="button"
             onClick={() => setShowPwd((v) => !v)}
-            className="btn btn-ghost btn-xs absolute right-1 top-1/2 -translate-y-1/2 z-10"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-10"
             tabIndex={-1}
             aria-label={showPwd ? "Hide password" : "Show password"}
           >
             {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
+        ) : dropdown ? (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+            <ChevronDown
+              className={clsx(
+                'h-5 w-5 transition-transform duration-200 text-gray-400',
+                open && 'rotate-180'
+              )}
+            />
+          </div>
         ) : null}
         
         {floating && label ? (

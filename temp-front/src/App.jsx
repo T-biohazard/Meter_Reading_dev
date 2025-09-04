@@ -20,6 +20,7 @@ import DatacenterDashboard from "./pages/DatacenterDashboard";
 import MeterDashboard from "./pages/MeterDashboard";
 import MeterDetailsDashboard from "./pages/MeterDetailsDashboard";
 import UsageSummaryDashboard from "./pages/UsageSummaryDashboard";
+import MenuAndPageManagement from "./pages/MenuAndPageManagement";
 // New: Create a client for React Query. This manages caching and data state.
 
 import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
@@ -59,6 +60,7 @@ export default function App() {
               <Route path="meter" element={<MeterDashboard />} />
               <Route path="report-meter-details" element={<MeterDetailsDashboard />} />
               <Route path="report-usage-summary" element={<UsageSummaryDashboard />} />
+              <Route path="menu-page-management" element={<MenuAndPageManagement />} />
               {/* Protected routes that require authentication */}
               <Route element={<ProtectedRoute />}>
                 <Route path="dashboard" element={<Dashboard />} />

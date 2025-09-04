@@ -169,21 +169,7 @@ export default function MeterDetailsDashboard() {
         ]
       }
     },
-    {
-      key: "actions",
-      header: "Actions",
-      render: (value, row) => (
-        <div className="flex">
-          <Button variant='icon' size="sm" onClick={() => handleEdit(row)} title="Edit">
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button variant='icon' size="sm" onClick={() => handleDelete(row.id)} title="Delete">
-            <Trash2 className="h-4 w-4 text-red-600" />
-          </Button>
-        </div>
-      ),
-    },
-  ], [handleEdit, handleDelete]);
+  ], );
 
   const filteredData = useMemo(() => {
     let result = meterDetails;
@@ -240,9 +226,9 @@ export default function MeterDetailsDashboard() {
           >
             Export
           </ExportButton>
-          <Button intent="primary" onClick={openNewForm} leftIcon={Plus}>
+          {/* <Button intent="primary" onClick={openNewForm} leftIcon={Plus}>
             Add Meter Details
-          </Button>
+          </Button> */}
         </div>
       </div>
       {loading ? (

@@ -1,3 +1,5 @@
+// src/services/authService.jsx
+
 /**
  * @fileoverview Auth service: handles API communication with the Laravel backend.
  * Also includes CRUD helpers for Menu Page Elements (phase 8).

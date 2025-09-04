@@ -120,8 +120,8 @@ function CollapsedIcons({ menu, onPick }) {
   return (
     <ul className="menu gap-1 py-2">
       {(menu || []).map((node) => {
-        const Icon = node.Icon;     // from static menu
-        const fa = node.icon || null; // from dynamic
+        const Icon = node.Icon;
+        const fa = node.icon || null;
         return (
           <li key={node.label} className="tooltip tooltip-right" data-tip={node.label}>
             <button className="btn btn-ghost btn-square" onClick={onPick}>
@@ -167,8 +167,8 @@ function Tree({ tree, depth = 0, openItem, onToggle }) {
     <ul className="space-y-0.5">
       {(tree || []).map((node) => {
         const hasKids = Array.isArray(node.children) && node.children.length > 0;
-        const Icon = node.Icon;          // static menu support
-        const fa = node.icon || null;    // dynamic FA string
+        const Icon = node.Icon;
+        const fa = node.icon || null;
         const isOpen = openItem === node.label;
 
         if (hasKids) {
@@ -180,8 +180,11 @@ function Tree({ tree, depth = 0, openItem, onToggle }) {
                              hover:bg-base-300/50 select-none
                              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   onClick={(e) => {
-                    e.preventDefault(); // <-- Prevent native behavior
-                    onToggle(node.label);
+                    // Only control the top-level menu state
+                    if (depth === 0) {
+                        e.preventDefault(); 
+                        onToggle(node.label);
+                    }
                   }}
                 >
                   <IconRenderer Icon={depth === 0 ? Icon : undefined} fa={fa} />
@@ -192,7 +195,8 @@ function Tree({ tree, depth = 0, openItem, onToggle }) {
                 </summary>
 
                 <div className="ml-3 pl-3 border-l border-base-300/50">
-                  <Tree tree={node.children} depth={depth + 1} openItem={openItem} onToggle={onToggle} />
+                  {/* For nested menus, pass null for openItem and onToggle to allow native behavior */}
+                  <Tree tree={node.children} depth={depth + 1} openItem={null} onToggle={() => {}} />
                 </div>
               </details>
             </li>

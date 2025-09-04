@@ -494,7 +494,7 @@ const PermissionsTable = () => {
   }
 
   return (
-    <div className="p-4 md:p-8 w-full bg-white">
+    <div className=" w-full bg-white">
       {/* header actions */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <h1 className="text-2xl font-semibold text-gray-800">Permissions by Role</h1>

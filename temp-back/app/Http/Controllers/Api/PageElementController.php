@@ -161,14 +161,92 @@ public function myPages(Request $request)
         }
     }
 
-    /**
+  /**
      * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\PageElement  $pageElement
+     * @return \Illuminate\Http\JsonResponse
      */
     public function update(Request $request, PageElement $pageElement)
     {
-        // Your specific update logic would go here.
-        // For now, this is a placeholder.
-        return response()->json($pageElement);
+        try {
+            // Case 1: Updating a Menu Name (bulk update)
+            if ($request->filled('new_menu_name')) {
+                PageElement::where('menu_id', $pageElement->menu_id)->update([
+                    'menu_name' => $request->input('new_menu_name')
+                ]);
+
+                return response()->json([
+                    'message' => 'Menu name updated successfully for all associated pages.'
+                ], 200);
+            }
+
+            // Case 2: Updating a Submenu Name and/or reassigning to a new Menu (bulk update)
+            if ($request->filled('new_sub_menu_name')) {
+                // Get the new menu_id and menu_name from the request.
+                $newMenuName = $request->input('menu_name');
+                $newMenu = PageElement::where('menu_name', $newMenuName)->first();
+                $newMenuId = $newMenu ? $newMenu->menu_id : (PageElement::max('menu_id') ?? 0) + 1;
+
+                // Perform the bulk update for all elements under the old submenu
+                PageElement::where('sub_menu_id', $pageElement->sub_menu_id)->update([
+                    'sub_menu_name' => $request->input('new_sub_menu_name'),
+                    'menu_id' => $newMenuId, // Assign the new menu ID
+                    'menu_name' => $newMenuName // Assign the new menu name
+                ]);
+
+                return response()->json([
+                    'message' => 'Submenu updated successfully and reassigned to the new menu.'
+                ], 200);
+            }
+
+            // Case 3: Updating a Page (individual update)
+            $validatedData = $request->validate([
+                'page_name' => 'required|string|max:255',
+                'path' => 'required|string|max:255',
+                'menu_name' => 'nullable|string|max:255',
+                'menu_icon' => 'nullable|string|max:255',
+                'sub_menu_name' => 'nullable|string|max:255',
+                'sub_menu_icon' => 'nullable|string|max:255',
+                'page_icon' => 'nullable|string|max:255',
+                'status' => 'nullable|integer',
+                'order_id' => 'nullable|integer',
+            ]);
+
+            // Auto-generate slug from path
+            $pathWithoutSlash = ltrim($validatedData['path'], '/');
+            $validatedData['page_slug'] = Str::slug($pathWithoutSlash);
+
+            // Handle Menu and Submenu Reassignment
+            $newMenuId = $pageElement->menu_id;
+            $newSubMenuId = $pageElement->sub_menu_id;
+
+            // Check if menu assignment has changed
+            if ($request->filled('menu_name') && $request->input('menu_name') !== $pageElement->menu_name) {
+                $existingMenu = PageElement::where('menu_name', $request->input('menu_name'))->first();
+                $newMenuId = $existingMenu ? $existingMenu->menu_id : (PageElement::max('menu_id') ?? 0) + 1;
+            }
+
+            // Check if submenu assignment has changed
+            if ($request->filled('sub_menu_name') && $request->input('sub_menu_name') !== $pageElement->sub_menu_name) {
+                $existingSubMenu = PageElement::where('sub_menu_name', $request->input('sub_menu_name'))->first();
+                $newSubMenuId = $existingSubMenu ? $existingSubMenu->sub_menu_id : (PageElement::max('sub_menu_id') ?? 0) + 1;
+            }
+
+            // Update the page element
+            $pageElement->update(array_merge($validatedData, [
+                'menu_id' => $newMenuId,
+                'sub_menu_id' => $newSubMenuId
+            ]));
+
+            return response()->json($pageElement->refresh(), 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['message' => 'Validation failed.', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to update page element.', 'error' => $e->getMessage()], 500);
+        }
     }
 
     /**
