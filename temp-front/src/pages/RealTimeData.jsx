@@ -348,42 +348,13 @@ export default function RealTimeData() {
     setChartConfig((prev) => ({ ...prev, ...values }));
   }, []);
 
-  // Simplified handleFilterChange function
+  // 👈 SIMPLIFIED handleFilterChange
   const handleFilterChange = useCallback((newFilters) => {
-    const { datacenterId, customerId, meterId } = newFilters;
-
-    // Update states in batch with proper cascading logic
-    setSelectedDatacenterId((prevDatacenterId) => {
-      // If datacenter changed, reset customer and meter
-      if (datacenterId !== prevDatacenterId) {
-        setSelectedCustomerId(null);
-        setSelectedMeterId(null);
-        setMeterReadings([]);
-        return datacenterId;
-      }
-      return prevDatacenterId;
-    });
-
-    setSelectedCustomerId((prevCustomerId) => {
-      // If customer changed (and datacenter didn't change), reset meter
-      if (customerId !== prevCustomerId && datacenterId === selectedDatacenterId) {
-        setSelectedMeterId(null);
-        setMeterReadings([]);
-        return customerId;
-      }
-      // If datacenter changed, this will be reset to null above
-      return datacenterId !== selectedDatacenterId ? null : customerId;
-    });
-
-    setSelectedMeterId((prevMeterId) => {
-      // Only update meter if neither datacenter nor customer changed
-      if (datacenterId === selectedDatacenterId && customerId === selectedCustomerId) {
-        return meterId;
-      }
-      // Otherwise, meter gets reset to null
-      return null;
-    });
-  }, [selectedDatacenterId, selectedCustomerId]);
+    setSelectedDatacenterId(newFilters.datacenterId);
+    setSelectedCustomerId(newFilters.customerId);
+    setSelectedMeterId(newFilters.meterId);
+    setMeterReadings([]); // Clear chart data immediately
+  }, []);
 
   const dataColumns = useMemo(() => {
     const columns = [
@@ -493,7 +464,7 @@ export default function RealTimeData() {
         header: 'Meter ID',
         field: SelectField,
         fieldProps: {
-          
+        
           options: meterOptions,
           searchable: true,
           value: selectedMeterId,
@@ -575,7 +546,8 @@ export default function RealTimeData() {
           }
           filterColumns={filterableColumns}
           onFilterChange={handleFilterChange}
-          FilterMenuProps={{ live: true }}
+          // 👈 YOU NEED THIS PROP NAME
+          filterMenuProps={{ live: true }}
           initialLoading={initialLoading}
         />
       </div>

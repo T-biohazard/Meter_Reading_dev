@@ -5,51 +5,55 @@ import { useOutside } from '../../hooks/useOutside';
 import Button from '../ui/Button';
 import { useFormik, FormikProvider, Field } from 'formik';
 
-/**
- * FilterMenu
- * @param {Object[]} columns         – same format you already use
- * @param {Function} onFilterChange  – (values) => void
- * @param {boolean}  [live=true]     – push changes on every edit?
- */
-const FilterMenu = ({ columns, onFilterChange, live = true }) => {
+const FilterMenu = ({ columns, onFilterChange, live = false }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerRef = useRef(null);
   useOutside(drawerRef, () => setDrawerOpen(false));
 
+  const initialValues = {
+    datacenterId: null,
+    customerId: null,
+    meterId: null,
+  };
+
   const formik = useFormik({
-    initialValues: {
-      datacenterId: null,
-      customerId: null,
-      meterId: null,
-    },
+    initialValues,
     onSubmit: (values) => {
       onFilterChange(values);
       setDrawerOpen(false);
     },
   });
 
-  /* ----------  LIVE MODE: notify parent immediately  ---------- */
-  useEffect(() => {
-    if (live) onFilterChange(formik.values);
-  }, [formik.values, live, onFilterChange]);
+  // Use a state to hold the live filter values
+  const [liveFilters, setLiveFilters] = useState(initialValues);
 
-  /* ----------  HELPERS  ---------- */
+  // Sync Formik's values with our live state
+  useEffect(() => {
+    if (live) {
+      setLiveFilters(formik.values);
+    }
+  }, [formik.values, live]);
+
+  // Push live filters to the parent
+  useEffect(() => {
+    if (live) {
+      onFilterChange(liveFilters);
+    }
+  }, [liveFilters, onFilterChange, live]);
+
   const clearFilters = () => {
-    formik.resetForm({
-      values: { datacenterId: null, customerId: null, meterId: null },
-    });
-    onFilterChange({});
+    formik.resetForm({ values: initialValues });
+    if (live) {
+      onFilterChange({});
+    }
   };
 
   const activeFiltersCount = React.useMemo(() => {
-    let count = 0;
-    if (formik.values.datacenterId) count++;
-    if (formik.values.customerId) count++;
-    if (formik.values.meterId) count++;
-    return count;
-  }, [formik.values]);
+    return Object.values(live ? liveFilters : formik.values).filter(
+      (value) => value !== null
+    ).length;
+  }, [live, liveFilters, formik.values]);
 
-  /* ----------  RENDER  ---------- */
   return (
     <>
       <Button onClick={() => setDrawerOpen(true)} leftIcon={Filter} variant="icon">
@@ -100,6 +104,9 @@ const FilterMenu = ({ columns, onFilterChange, live = true }) => {
               .filter((col) => col.key !== 'actions' && col.field)
               .map((col) => {
                 const FieldComponent = col.field;
+                const fieldProps = col.fieldProps || {};
+                const options = fieldProps.options || [];
+
                 return (
                   <div key={col.key}>
                     <Field
@@ -108,8 +115,8 @@ const FilterMenu = ({ columns, onFilterChange, live = true }) => {
                       label={col.header || col.key}
                       floating={true}
                       className="mb-0"
-                      {...col.fieldProps}
-                      options={col.fieldProps.options}
+                      {...fieldProps}
+                      options={options}
                     />
                   </div>
                 );

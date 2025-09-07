@@ -16,7 +16,6 @@ import { SlidersHorizontal, X, Download } from 'lucide-react';
 import { useOutside } from '../../hooks/useOutside';
 import FilterMenu from '../table/FilterMenu';
 
-// Register all available Chart.js components and additional plugins
 ChartJS.register(...registerables, zoomPlugin, annotationPlugin);
 
 const Chart = forwardRef(
@@ -37,6 +36,8 @@ const Chart = forwardRef(
       onZoom,
       filterColumns,
       onFilterChange,
+      // 👈 ADD THIS PROP
+      filterMenuProps = {},
     },
     ref
   ) => {
@@ -59,35 +60,30 @@ const Chart = forwardRef(
     const themeColors = useMemo(() => {
       if (theme === 'dark') {
         return {
-          background: '#1f2937', // Gray-800
-          text: '#f9fafb', // Gray-50
-          grid: '#4b5563', // Gray-600
-          border: '#6b7280', // Gray-500
+          background: '#1f2937',
+          text: '#f9fafb',
+          grid: '#4b5563',
+          border: '#6b7280',
         };
       }
       return {
         background: '#ffffff',
-        text: '#111827', // Gray-900
-        grid: '#e5e7eb', // Gray-200
-        border: '#d1d5db', // Gray-300
+        text: '#111827',
+        grid: '#e5e7eb',
+        border: '#d1d5db',
       };
     }, [theme]);
 
     const handleSaveChart = useCallback(() => {
       if (chartInstanceRef.current) {
         const chart = chartInstanceRef.current;
-
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = chart.width;
         tempCanvas.height = chart.height;
-
         const ctx = tempCanvas.getContext('2d');
-
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-
         ctx.drawImage(chart.canvas, 0, 0);
-
         const url = tempCanvas.toDataURL('image/png', 1);
         const link = document.createElement('a');
         link.href = url;
@@ -113,7 +109,6 @@ const Chart = forwardRef(
       }
 
       const ctx = chartRef.current.getContext('2d');
-
       const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
@@ -127,9 +122,7 @@ const Chart = forwardRef(
         plugins: {
           legend: {
             position: 'bottom',
-            labels: {
-              color: themeColors.text,
-            },
+            labels: { color: themeColors.text },
           },
           tooltip: {
             backgroundColor: themeColors.background,
@@ -148,42 +141,23 @@ const Chart = forwardRef(
                   drag: { enabled: true, backgroundColor: 'rgba(75,192,192,0.2)' },
                   mode: 'xy',
                 },
-                pan: {
-                  enabled: true,
-                  mode: 'xy',
-                },
-                limits: {
-                  y: { min: 0 },
-                },
+                pan: { enabled: true, mode: 'xy' },
+                limits: { y: { min: 0 } },
                 onZoom: onZoom,
               }
             : undefined,
-          annotation: {
-            annotations: annotations,
-          },
+          annotation: { annotations: annotations },
         },
         scales: {
           x: {
-            grid: {
-              color: themeColors.grid,
-            },
-            ticks: {
-              color: themeColors.text,
-            },
-            title: {
-              color: themeColors.text,
-            },
+            grid: { color: themeColors.grid },
+            ticks: { color: themeColors.text },
+            title: { color: themeColors.text },
           },
           y: {
-            grid: {
-              color: themeColors.grid,
-            },
-            ticks: {
-              color: themeColors.text,
-            },
-            title: {
-              color: themeColors.text,
-            },
+            grid: { color: themeColors.grid },
+            ticks: { color: themeColors.text },
+            title: { color: themeColors.text },
           },
         },
         ...options,
@@ -200,7 +174,6 @@ const Chart = forwardRef(
           options: chartOptions,
         });
       }
-
       return cleanup;
     }, [
       type,
@@ -225,13 +198,18 @@ const Chart = forwardRef(
     return (
       <div className={clsx('relative w-full h-full', className)} style={{ backgroundColor: themeColors.background }}>
         <div className="flex justify-between p-2">
-          <div className="flex items-center space-x-2">{/* Removed Reset Zoom Button */}</div>
+          <div className="flex items-center space-x-2"></div>
           <div className="flex space-x-2 z-10">
             <Button onClick={handleSaveChart} leftIcon={Download} variant="icon" title="Download Chart">
               Download
             </Button>
             {filterColumns && onFilterChange && (
-              <FilterMenu columns={filterColumns} onFilterChange={onFilterChange} />
+              <FilterMenu
+                columns={filterColumns}
+                onFilterChange={onFilterChange}
+                // 👈 SPREAD THE NEW PROPS HERE
+                {...filterMenuProps}
+              />
             )}
             {chartOptionsComponent && (
               <Button
@@ -245,13 +223,11 @@ const Chart = forwardRef(
             )}
           </div>
         </div>
-
         {initialLoading && !hasData && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
           </div>
         )}
-
         {showFallback ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 p-4 text-center">
             <p className="text-lg font-semibold">{fallbackMessage}</p>
@@ -262,14 +238,12 @@ const Chart = forwardRef(
             <canvas ref={chartRef} />
           </div>
         )}
-
         {isOptionsDrawerOpen && (
           <div
             className="fixed inset-0 bg-black bg-opacity-40 z-40"
             onClick={() => setIsOptionsDrawerOpen(false)}
           ></div>
         )}
-
         <div
           ref={optionsDrawerRef}
           className={clsx(
@@ -295,7 +269,5 @@ const Chart = forwardRef(
     );
   }
 );
-
 Chart.displayName = 'Chart';
-
 export default Chart;
