@@ -55,6 +55,18 @@ export function useFastApi() {
         listMeterReadings2: () => Promise.resolve([]),
         listCombinedReadingsByMeter: () => Promise.resolve([]),
         listCombinedReadingsRecent: () => Promise.resolve([]),
+
+        // Meter Readings Topic 1 Logs
+        listMeterReadingTopic1Logs: () => Promise.resolve([]),
+        createMeterReadingTopic1Logs: () => Promise.resolve(null),
+
+        // Meter Readings Topic 2 Logs
+        listMeterReadingTopic2Logs: () => Promise.resolve([]),
+        createMeterReadingTopic2Logs: () => Promise.resolve(null),
+
+        // Combined Meter Readings Logs
+        listCombinedLogsByMeter: () => Promise.resolve([]),
+        listCombinedLogsRecent: () => Promise.resolve([]),
       };
     }
 
@@ -106,6 +118,18 @@ export function useFastApi() {
       listMeterReadings2: (skip, limit) => FastApiService.listMeterReadings2(skip, limit, token),
       listCombinedReadingsByMeter: (meter_id, limit) => FastApiService.listCombinedReadingsByMeter(meter_id, limit, token),
       listCombinedReadingsRecent: (limit) => FastApiService.listCombinedReadingsRecent(limit, token),
+      
+      // Meter Readings Topic 1 Logs
+      listMeterReadingTopic1Logs: (skip, limit, startTime, endTime, meterId) => FastApiService.listMeterReadingTopic1Logs(skip, limit, startTime, endTime, meterId, token),
+      createMeterReadingTopic1Logs: (payload) => FastApiService.createMeterReadingTopic1Logs(payload, token),
+
+      // Meter Readings Topic 2 Logs
+      listMeterReadingTopic2Logs: (skip, limit, startTime, endTime, meterId) => FastApiService.listMeterReadingTopic2Logs(skip, limit, startTime, endTime, meterId, token),
+      createMeterReadingTopic2Logs: (payload) => FastApiService.createMeterReadingTopic2Logs(payload, token),
+
+      // Combined Meter Readings Logs
+      listCombinedLogsByMeter: (meter_id, limit) => FastApiService.listCombinedLogsByMeter(meter_id, limit, token),
+      listCombinedLogsRecent: (limit) => FastApiService.listCombinedLogsRecent(limit, token),
     };
   }, [token]);
 

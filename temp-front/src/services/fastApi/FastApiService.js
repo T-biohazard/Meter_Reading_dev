@@ -9,7 +9,7 @@ const API_BASE_URL = "http://localhost:8001";
  */
 async function handleApiResponse(response) {
   // If the response is a 404 for a meter readings endpoint, return an empty array instead of throwing an error.
-  if (response.status === 404 && response.url.includes('meter_readings_combined')) {
+  if (response.status === 404 && response.url.includes('meter_readings_combined') || response.url.includes('meter_readings_combined_logs')) {
     return []; 
   }
 
@@ -126,6 +126,34 @@ const FastApiService = {
     apiRequest(`/meter_readings_combined/${meter_id}?limit=${limit}`, { method: "GET" }, token),
   listCombinedReadingsRecent: (limit = 10, token = null) =>
     apiRequest(`/meter_readings_combined/?limit=${limit}`, { method: "GET" }, token),
+
+  // ===== Meter Readings Topic 1 Logs =====
+  listMeterReadingTopic1Logs: (skip = 0, limit = 100, startTime = null, endTime = null, meterId = null, token = null) => {
+    let path = `/meter_readings_topic1_logs/?skip=${skip}&limit=${limit}`;
+    if (startTime) path += `&start_time=${startTime.toISOString()}`;
+    if (endTime) path += `&end_time=${endTime.toISOString()}`;
+    if (meterId) path += `&meter_id=${meterId}`;
+    return apiRequest(path, { method: "GET" }, token);
+  },
+  createMeterReadingTopic1Logs: (payload, token = null) =>
+    apiRequest("/meter_readings_topic1_logs/", { method: "POST", body: JSON.stringify(payload) }, token),
+  
+  // ===== Meter Readings Topic 2 Logs =====
+  listMeterReadingTopic2Logs: (skip = 0, limit = 100, startTime = null, endTime = null, meterId = null, token = null) => {
+    let path = `/meter_readings_topic2_logs/?skip=${skip}&limit=${limit}`;
+    if (startTime) path += `&start_time=${startTime.toISOString()}`;
+    if (endTime) path += `&end_time=${endTime.toISOString()}`;
+    if (meterId) path += `&meter_id=${meterId}`;
+    return apiRequest(path, { method: "GET" }, token);
+  },
+  createMeterReadingTopic2Logs: (payload, token = null) =>
+    apiRequest("/meter_readings_topic2_logs/", { method: "POST", body: JSON.stringify(payload) }, token),
+
+  // ===== Combined Meter Readings Logs =====
+  listCombinedLogsByMeter: (meter_id, limit = 10, token = null) =>
+    apiRequest(`/meter_readings_combined_logs/${meter_id}?limit=${limit}`, { method: "GET" }, token),
+  listCombinedLogsRecent: (limit = 10, token = null) =>
+    apiRequest(`/meter_readings_combined_logs/?limit=${limit}`, { method: "GET" }, token),
 };
 
 export default FastApiService;
