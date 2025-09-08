@@ -36,7 +36,6 @@ const Chart = forwardRef(
       onZoom,
       filterColumns,
       onFilterChange,
-      // 👈 ADD THIS PROP
       filterMenuProps = {},
     },
     ref
@@ -48,12 +47,12 @@ const Chart = forwardRef(
     const [chartLoaded, setChartLoaded] = useState(false);
     useOutside(optionsDrawerRef, () => setIsOptionsDrawerOpen(false));
 
+    // Refactored hasData to check for at least one numeric, finite value
     const hasData = useMemo(() => {
-      return (
-        data &&
-        data.datasets &&
-        data.datasets.length > 0 &&
-        data.datasets.some((dataset) => dataset.data && dataset.data.length > 0)
+      if (!data || !data.datasets || data.datasets.length === 0) return false;
+      return data.datasets.some(dataset =>
+        Array.isArray(dataset.data) &&
+        dataset.data.some(v => v !== null && v !== undefined && !Number.isNaN(Number(v)))
       );
     }, [data]);
 
@@ -102,13 +101,21 @@ const Chart = forwardRef(
         }
       };
 
-      if (!chartRef.current || !hasData) {
+      if (!chartRef.current) {
+        cleanup();
+        setChartLoaded(false);
+        return;
+      }
+      
+      const ctx = chartRef.current.getContext('2d');
+
+      if (!hasData) {
+        // If there's no data, destroy any existing chart and show the fallback
         cleanup();
         setChartLoaded(false);
         return;
       }
 
-      const ctx = chartRef.current.getContext('2d');
       const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
@@ -167,12 +174,16 @@ const Chart = forwardRef(
         chartInstanceRef.current.data = data;
         chartInstanceRef.current.options = chartOptions;
         chartInstanceRef.current.update();
+        // Immediately set chartLoaded to true on update
+        setChartLoaded(true);
       } else {
         chartInstanceRef.current = new ChartJS(ctx, {
           type: type,
           data: data,
           options: chartOptions,
         });
+        // Immediately set chartLoaded to true on creation
+        setChartLoaded(true);
       }
       return cleanup;
     }, [
@@ -207,7 +218,6 @@ const Chart = forwardRef(
               <FilterMenu
                 columns={filterColumns}
                 onFilterChange={onFilterChange}
-                // 👈 SPREAD THE NEW PROPS HERE
                 {...filterMenuProps}
               />
             )}
@@ -223,12 +233,11 @@ const Chart = forwardRef(
             )}
           </div>
         </div>
-        {initialLoading && !hasData && (
+        {initialLoading ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
           </div>
-        )}
-        {showFallback ? (
+        ) : showFallback ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 p-4 text-center">
             <p className="text-lg font-semibold">{fallbackMessage}</p>
             <p className="text-sm mt-2">Check your data source or filters.</p>

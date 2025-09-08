@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Filter, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useOutside } from '../../hooks/useOutside';
@@ -8,55 +8,85 @@ import { useFormik, FormikProvider, Field } from 'formik';
 const FilterMenu = ({ columns, onFilterChange, live = false }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerRef = useRef(null);
-  useOutside(drawerRef, () => setDrawerOpen(false));
 
-  const initialValues = {
-    datacenterId: null,
-    customerId: null,
-    meterId: null,
-  };
+  // Dynamically generate initial values from columns
+  const initialValues = useMemo(() => {
+    return columns.reduce((acc, col) => {
+      if (col.key !== 'actions' && col.field) {
+        acc[col.key] = '';
+      }
+      return acc;
+    }, {});
+  }, [columns]);
 
   const formik = useFormik({
     initialValues,
     onSubmit: (values) => {
-      onFilterChange(values);
+      // Aggressively clean up empty values before sending
+      const activeFilters = Object.entries(values).reduce((acc, [key, value]) => {
+        if (value !== null && value !== '' && value !== undefined) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {});
+      
+      onFilterChange(activeFilters);
       setDrawerOpen(false);
     },
   });
 
-  // Use a state to hold the live filter values
-  const [liveFilters, setLiveFilters] = useState(initialValues);
-
-  // Sync Formik's values with our live state
-  useEffect(() => {
+  // Handle live updates
+  const handleLiveChange = useCallback(() => {
     if (live) {
-      setLiveFilters(formik.values);
+      onFilterChange(formik.values);
     }
-  }, [formik.values, live]);
+  }, [live, onFilterChange, formik.values]);
 
-  // Push live filters to the parent
   useEffect(() => {
-    if (live) {
-      onFilterChange(liveFilters);
-    }
-  }, [liveFilters, onFilterChange, live]);
+    handleLiveChange();
+  }, [formik.values, handleLiveChange]);
+
+  // Handle 'Escape' key to close the drawer for improved accessibility
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && drawerOpen) {
+        setDrawerOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [drawerOpen]);
+
+  // Use the useOutside hook for clicks outside the drawer
+  useOutside(drawerRef, () => setDrawerOpen(false));
 
   const clearFilters = () => {
+    // Reset the form values to their initial empty state
     formik.resetForm({ values: initialValues });
-    if (live) {
-      onFilterChange({});
-    }
+    // Always notify the parent component that filters have been cleared
+    // by sending an empty object. This is the fix.
+    onFilterChange({});
   };
 
-  const activeFiltersCount = React.useMemo(() => {
-    return Object.values(live ? liveFilters : formik.values).filter(
-      (value) => value !== null
+  const activeFiltersCount = useMemo(() => {
+    return Object.values(formik.values).filter(
+      (value) => value !== null && value !== ''
     ).length;
-  }, [live, liveFilters, formik.values]);
+  }, [formik.values]);
+
+  const handleOpenDrawer = () => {
+    setDrawerOpen(true);
+  };
+
+  const handleCloseDrawer = () => {
+    setDrawerOpen(false);
+  };
 
   return (
     <>
-      <Button onClick={() => setDrawerOpen(true)} leftIcon={Filter} variant="icon">
+      <Button onClick={handleOpenDrawer} leftIcon={Filter} variant="icon">
         Filters
         {activeFiltersCount > 0 && (
           <span className="inline-flex items-center justify-center h-4 w-4 rounded-full text-xs font-semibold bg-blue-500 text-white ml-1">
@@ -65,10 +95,11 @@ const FilterMenu = ({ columns, onFilterChange, live = false }) => {
         )}
       </Button>
 
+      {/* The overlay is now conditionally rendered for a cleaner DOM */}
       {drawerOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-40 z-40"
-          onClick={() => setDrawerOpen(false)}
+          onClick={handleCloseDrawer}
         />
       )}
 
@@ -85,7 +116,7 @@ const FilterMenu = ({ columns, onFilterChange, live = false }) => {
             <Filter className="h-5 w-5" /> Filter
           </h2>
           <Button
-            onClick={() => setDrawerOpen(false)}
+            onClick={handleCloseDrawer}
             variant="icon"
             size="sm"
             title="Close Filters"

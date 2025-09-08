@@ -28,6 +28,8 @@ import '@fortawesome/fontawesome-free/css/solid.min.css';
 import '@fortawesome/fontawesome-free/css/brands.min.css'; // only if you use brands
 import RackDashboard from "./pages/RackDashboard";
 import RealTimeData from "./pages/RealTimeData";
+import LogsDashboard from "./pages/LogsDashboard";
+import PowerUsageDashboard from "./pages/PowerUsageDashboard";
 // (optional) import '@fortawesome/fontawesome-free/css/regular.min.css';
 
 
@@ -63,6 +65,8 @@ export default function App() {
               <Route path="report-usage-summary" element={<UsageSummaryDashboard />} />
               <Route path="menu-page-management" element={<MenuAndPageManagement />} />
               <Route path="real-time-graph" element={<RealTimeData />} />
+              <Route path="logs" element={<LogsDashboard />} />
+              <Route path="report-power-usage" element={<PowerUsageDashboard /> } />
               {/* Protected routes that require authentication */}
               <Route element={<ProtectedRoute />}>
                 <Route path="dashboard" element={<Dashboard />} />

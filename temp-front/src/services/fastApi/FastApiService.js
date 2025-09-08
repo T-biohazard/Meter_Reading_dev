@@ -1,3 +1,4 @@
+// Corrected FastApiService.js
 /**
  * @fileoverview FastApiService: handles API communication with the FastAPI backend.
  */
@@ -9,7 +10,7 @@ const API_BASE_URL = "http://localhost:8001";
  */
 async function handleApiResponse(response) {
   // If the response is a 404 for a meter readings endpoint, return an empty array instead of throwing an error.
-  if (response.status === 404 && response.url.includes('meter_readings_combined') || response.url.includes('meter_readings_combined_logs')) {
+  if (response.status === 404 && (response.url.includes('meter_readings_combined') || response.url.includes('meter_readings_combined_logs'))) {
     return []; 
   }
 
