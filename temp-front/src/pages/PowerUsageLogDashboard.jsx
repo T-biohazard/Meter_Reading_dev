@@ -13,6 +13,7 @@ import { useFastApi } from '../hooks/fastapihooks/fastapihooks';
 import SelectField from '../components/fields/SelectField';
 import Button from '../components/ui/Button';
 import FilterMenu from '../components/table/FilterMenu';
+import DateField from '../components/fields/DateField';
 
 
 /** ------------------------------
@@ -267,9 +268,11 @@ export default function PowerUsageLogDashboard() {
   const [logsByMeterType, setLogsByMeterType] = useState({});
   const [initialLoading, setInitialLoading] = useState(true);
 
-  // State for selected IDs
+  // State for selected IDs and date/time range
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [selectedMeterId, setSelectedMeterId] = useState(null);
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
 
   // All available options for the dropdowns
   const [meters, setMeters] = useState([]);
@@ -277,7 +280,7 @@ export default function PowerUsageLogDashboard() {
   const [customerMappings, setCustomerMappings] = useState([]);
 
   const [chartConfig, setChartConfig] = useState({
-    yAxisColumns: ['ua', 'ub', 'uc'],
+    yAxisColumns: ['zyggl'],
     chartType: 'line',
     showPoints: false,
     showLegend: true,
@@ -334,8 +337,16 @@ export default function PowerUsageLogDashboard() {
 
     const fetchPromises = metersToFetch.map(async (meter) => {
       const type = meter.primary_secondary === 1 ? 'Primary' : 'Secondary';
+
       try {
-        const data = await api.listCombinedLogsByMeter(meter.id, 50);
+        const data = await api.listCombinedLogsByMeter(
+          meter.id, 
+          50,
+          { 
+            start_time: startDate, 
+            end_time: endDate 
+          }
+        );
         const readings = aggregateLogs(data?.readings || []);
         meterLogs[type] = readings;
       } catch (error) {
@@ -347,7 +358,7 @@ export default function PowerUsageLogDashboard() {
     await Promise.all(fetchPromises);
     setLogsByMeterType(meterLogs);
     setInitialLoading(false);
-  }, [api, selectedCustomerId, selectedMeterId, meters, customerMappings]);
+  }, [api, selectedCustomerId, selectedMeterId, meters, customerMappings, startDate, endDate]);
 
   useEffect(() => {
     fetchInitialData();
@@ -356,8 +367,6 @@ export default function PowerUsageLogDashboard() {
   useEffect(() => {
     if (selectedCustomerId) {
       fetchMeterReadings();
-      const intervalId = setInterval(fetchMeterReadings, 60000); // Poll every minute
-      return () => clearInterval(intervalId);
     }
   }, [selectedCustomerId, selectedMeterId, fetchMeterReadings]);
 
@@ -369,6 +378,8 @@ export default function PowerUsageLogDashboard() {
   const handleFilterChange = useCallback((newFilters) => {
     setSelectedCustomerId(newFilters.customerId);
     setSelectedMeterId(newFilters.meterId);
+    setStartDate(newFilters.startDate);
+    setEndDate(newFilters.endDate);
     // This clears the data and triggers a reload
     setLogsByMeterType({}); 
   }, []);
@@ -417,8 +428,26 @@ export default function PowerUsageLogDashboard() {
           allowClear: false,
         },
       },
+      {
+        key: 'startDate',
+        header: 'Start Date',
+        field: DateField,
+        fieldProps: {
+          value: startDate,
+          onChange: (v) => handleFilterChange({ customerId: selectedCustomerId, meterId: selectedMeterId, startDate: v, endDate }),
+        },
+      },
+      {
+        key: 'endDate',
+        header: 'End Date',
+        field: DateField,
+        fieldProps: {
+          value: endDate,
+          onChange: (v) => handleFilterChange({ customerId: selectedCustomerId, meterId: selectedMeterId, startDate, endDate: v }),
+        },
+      },
     ];
-  }, [customers, meters, customerMappings, selectedCustomerId, selectedMeterId]);
+  }, [customers, meters, customerMappings, selectedCustomerId, selectedMeterId, startDate, endDate, handleFilterChange]);
 
   // Chart and Table data columns for display
   const dataColumns = useMemo(() => {
@@ -427,14 +456,13 @@ export default function PowerUsageLogDashboard() {
       'pa', 'pb', 'pc', 'pfa', 'pfb', 'pfc', 'zglys', 'f', 'u', 'i', 'zyggl', 'zygsz'
     ];
   }, []);
+  
 
   /* ------------------------------------------------------------------
-   * NEW: This hook processes the raw logs into the summary table format.
+   * This hook processes the raw logs into the summary table format.
    * Now it creates a row for EACH meter.
    * ------------------------------------------------------------------ */
   const summaryTableData = useMemo(() => {
-    const primaryMeters = meters.filter(m => m.primary_secondary === 1);
-    const secondaryMeters = meters.filter(m => m.primary_secondary === 2);
     const data = [];
 
     // Find all unique meter IDs from the fetched logs
@@ -593,13 +621,7 @@ export default function PowerUsageLogDashboard() {
               }}
               allowZoomAndPan
               theme={chartConfig.theme}
-              chartOptionsComponent={
-                <ChartOptionsForm
-                  onApply={handleOptionsApply}
-                  initialValues={chartConfig}
-                  dataColumns={dataColumns}
-                />
-              }
+              
               initialLoading={initialLoading}
             />
           </div>

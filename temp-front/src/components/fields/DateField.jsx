@@ -3,9 +3,16 @@
 import React from 'react';
 import clsx from 'clsx';
 
-const DateField = ({ label, value, onChange, disabled, className, ...rest }) => {
+const DateField = ({
+  label,
+  value, // string (yyyy-mm-dd) or null
+  onChange, // (isoString | null) => void
+  disabled,
+  className,
+  ...nativeProps
+}) => {
   const handleChange = (e) => {
-    // Emit the ISO string directly, or null if empty
+    // Keep it a string (or null if empty)
     onChange?.(e.target.value || null);
   };
 
@@ -17,13 +24,12 @@ const DateField = ({ label, value, onChange, disabled, className, ...rest }) => 
         </label>
       )}
       <input
+        {...nativeProps}
         type="date"
-        // The value prop now expects an ISO string
-        value={value || ''}
+        value={value ?? ''}
         onChange={handleChange}
         disabled={disabled}
         className="input input-bordered w-full"
-        {...rest}
       />
     </div>
   );

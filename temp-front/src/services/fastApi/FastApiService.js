@@ -151,17 +151,29 @@ const FastApiService = {
 
   // ===== Combined Meter Readings Logs =====
   listCombinedLogsByMeter: (meter_id, limit = 10, startDate = null, endDate = null, token = null) => {
-    let path = `/meter_readings_combined_logs/${meter_id}?limit=${limit}`;
-    if (startDate) path += `&start_date=${startDate.toISOString()}`;
-    if (endDate) path += `&end_date=${endDate.toISOString()}`;
-    return apiRequest(path, { method: "GET" }, token);
-  },
-  listCombinedLogsRecent: (limit = 10, startDate = null, endDate = null, token = null) => {
-    let path = `/meter_readings_combined_logs/?limit=${limit}`;
-    if (startDate) path += `&start_date=${startDate.toISOString()}`;
-    if (endDate) path += `&end_date=${endDate.toISOString()}`;
-    return apiRequest(path, { method: "GET" }, token);
-  },
+  let path = `/meter_readings_combined_logs/${meter_id}?limit=${limit}`;
+
+  // ONLY convert when it is a Date object; string/null are used as-is
+  if (startDate instanceof Date) path += `&start_date=${startDate.toISOString()}`;
+  else if (typeof startDate === 'string') path += `&start_date=${startDate}`;
+
+  if (endDate instanceof Date) path += `&end_date=${endDate.toISOString()}`;
+  else if (typeof endDate === 'string') path += `&end_date=${endDate}`;
+
+  return apiRequest(path, { method: 'GET' }, token);
+},
+
+listCombinedLogsRecent: (limit = 10, startDate = null, endDate = null, token = null) => {
+  let path = `/meter_readings_combined_logs/?limit=${limit}`;
+
+  if (startDate instanceof Date) path += `&start_date=${startDate.toISOString()}`;
+  else if (typeof startDate === 'string') path += `&start_date=${startDate}`;
+
+  if (endDate instanceof Date) path += `&end_date=${endDate.toISOString()}`;
+  else if (typeof endDate === 'string') path += `&end_date=${endDate}`;
+
+  return apiRequest(path, { method: 'GET' }, token);
+},
 };
 
 export default FastApiService;
