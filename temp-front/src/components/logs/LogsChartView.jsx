@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Chart from '../charts/Chart';
+import { useFastApi } from '../../hooks/fastapihooks/fastapihooks';
 import InputField from '../fields/InputField';
 import SelectField from '../fields/SelectField';
 import Button from '../ui/Button';
@@ -116,30 +117,49 @@ const ChartOptionsForm = ({ onApply, initialValues, dataColumns }) => {
 /** ------------------------------
  * Main Logs Chart View Component
  * ------------------------------ */
-export default function LogsChartView({
-  combinedLogs,
-  customers,
-  customerMappings,
-  selectedCustomerId,
-  handleCustomerChange,
-  selectedMeterIds,
-  setSelectedMeterIds,
-  dateRange,
-  setDateRange,
-  loading
-}) {
+export default function LogsChartView({ combinedLogs, onFilterChange }) {
+  const api = useFastApi();
+  // **Updated chartConfig initial state to include zygsz**
   const [chartConfig, setChartConfig] = useState({
     yAxisColumns: ['ua', 'ub', 'zygsz'],
     chartType: 'line',
     showPoints: true,
     showLegend: true,
     theme: 'light',
+    initialLoading: false,
   });
+
+  const [filterValues, setFilterValues] = useState({
+    meterId: null,
+    startTime: '',
+    endTime: '',
+    limit: 100,
+  });
+
+  const [allMeters, setAllMeters] = useState([]);
+
+  useEffect(() => {
+    const fetchMeters = async () => {
+      try {
+        const meters = await api.listMeters();
+        setAllMeters(meters);
+      } catch (err) {
+        console.error("Failed to fetch meters for filter:", err);
+      }
+    };
+    fetchMeters();
+  }, [api]);
+
+  const handleFilterChange = useCallback((newFilters) => {
+    setFilterValues(newFilters);
+    onFilterChange(newFilters);
+  }, [onFilterChange]);
 
   const handleOptionsApply = useCallback((values) => {
     setChartConfig(prev => ({ ...prev, ...values }));
   }, []);
 
+  // **Updated dataColumns to include 'zygsz'**
   const dataColumns = useMemo(() => {
     const columns = [
       'ua', 'ub', 'uc', 'ia', 'ib', 'ic', 'uab', 'ubc', 'uca', 'pa', 'pb', 'pc',
@@ -147,6 +167,43 @@ export default function LogsChartView({
     ];
     return columns;
   }, []);
+
+  const filterableColumns = useMemo(() => {
+    const meterOptions = allMeters.map(m => ({ label: m.serial, value: String(m.id) }));
+    const limitOptions = [
+      { label: '50 Points', value: 50 },
+      { label: '100 Points', value: 100 },
+      { label: '500 Points', value: 500 },
+      { label: '1000 Points', value: 1000 },
+    ];
+
+    return [
+      {
+        key: 'meterId',
+        header: 'Meter ID',
+        field: SelectField,
+        fieldProps: { options: meterOptions, searchable: true, value: filterValues.meterId, placeholder: "Select Meter" },
+      },
+      {
+        key: 'limit',
+        header: '# of Points',
+        field: SelectField,
+        fieldProps: { options: limitOptions, value: filterValues.limit, placeholder: "# of Points" },
+      },
+      {
+        key: 'startTime',
+        header: 'Start Time',
+        field: InputField,
+        fieldProps: { type: 'datetime-local', value: filterValues.startTime, placeholder: "Start Time" },
+      },
+      {
+        key: 'endTime',
+        header: 'End Time',
+        field: InputField,
+        fieldProps: { type: 'datetime-local', value: filterValues.endTime, placeholder: "End Time" },
+      },
+    ];
+  }, [allMeters, filterValues]);
 
   const chartData = useMemo(() => {
     const datasets = chartConfig.yAxisColumns.map((col, index) => {
@@ -156,6 +213,7 @@ export default function LogsChartView({
         return isNaN(parsedValue) ? null : parsedValue;
       });
 
+      // **Updated colors to include a new one for zygsz**
       const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#CD5C5C', '#32CD32', '#00CED1', '#FFA500'];
       const color = colors[index % colors.length];
 
@@ -172,98 +230,21 @@ export default function LogsChartView({
       };
     });
     
+    // Add debug log
+    console.debug('[LogsChartView] chartData', {
+      labelsCount: combinedLogs.length,
+      firstRow: combinedLogs[0],
+      datasetsPreview: chartConfig.yAxisColumns.map(col => ({
+        col,
+        sampleData: combinedLogs.map(d => d[col]).slice(0, 6),
+      })),
+    });
+
     return {
       labels: combinedLogs.map(d => new Date(d.meter_time).toLocaleString()),
       datasets: datasets,
     };
-  }, [combinedLogs, chartConfig]);
-
-  // **New: Create the filter menu component content dynamically based on props**
-  const FilterMenuContent = useCallback(() => {
-    const customerOptions = customers.map(c => ({
-      label: c.customer || `Customer ID: ${c.id}`,
-      value: c.id,
-    }));
-    
-    const metersForSelectedCustomer = customerMappings
-      .filter(m => m.customer_id === selectedCustomerId)
-      .map(m => m.meter_id);
-
-    const handleSelectAllMeters = (checked) => {
-      if (checked) {
-          setSelectedMeterIds(metersForSelectedCustomer);
-      } else {
-          setSelectedMeterIds([]);
-      }
-    };
-
-    const handleIndividualMeterChange = (meterId, checked) => {
-      if (checked) {
-        setSelectedMeterIds(prev => [...prev, meterId]);
-      } else {
-        setSelectedMeterIds(prev => prev.filter(id => id !== meterId));
-      }
-    };
-
-    const handleDateChange = (type) => (e) => {
-      setDateRange(prev => ({ ...prev, [type]: e.target.value ? new Date(e.target.value) : null }));
-    };
-
-    return (
-      <div className="flex flex-col sm:flex-row gap-4 p-4 bg-gray-100 rounded-lg shadow-inner mb-8">
-        {/* Customer Selection */}
-        <div className="w-full sm:w-1/3">
-          <SelectField
-            label="Customer"
-            options={customerOptions}
-            value={selectedCustomerId}
-            onChange={handleCustomerChange}
-            placeholder="Select a customer"
-            disabled={loading}
-          />
-        </div>
-
-        {/* Meter Selection */}
-        <div className="w-full sm:w-1/3">
-          <div className="text-sm font-medium text-gray-700 mb-1">Meters</div>
-          <div className="bg-white p-2 rounded-md shadow-sm border border-gray-300 max-h-40 overflow-y-auto">
-            {selectedCustomerId && metersForSelectedCustomer.length > 0 ? (
-                <>
-                    <Button type="button" onClick={() => handleSelectAllMeters(selectedMeterIds.length !== metersForSelectedCustomer.length)} toggled={selectedMeterIds.length === metersForSelectedCustomer.length}>
-                      Select All
-                    </Button>
-                    <hr className="my-2 border-gray-200" />
-                    {metersForSelectedCustomer.map(meterId => (
-                        <Button key={meterId} type="button" onClick={() => handleIndividualMeterChange(meterId, !selectedMeterIds.includes(meterId))} toggled={selectedMeterIds.includes(meterId)}>
-                          {meterId}
-                        </Button>
-                    ))}
-                </>
-            ) : (
-                <p className="text-gray-500 text-sm">No meters available.</p>
-            )}
-          </div>
-        </div>
-
-        {/* Date Range Selection */}
-        <div className="w-full sm:w-1/3 flex flex-col gap-2">
-            <InputField 
-              label="Start Time"
-              type="datetime-local"
-              value={dateRange.startDate ? dateRange.startDate.toISOString().slice(0, 16) : ''}
-              onChange={handleDateChange('startDate')}
-            />
-            <InputField 
-              label="End Time"
-              type="datetime-local"
-              value={dateRange.endDate ? dateRange.endDate.toISOString().slice(0, 16) : ''}
-              onChange={handleDateChange('endDate')}
-            />
-        </div>
-      </div>
-    );
-  }, [customers, customerMappings, selectedCustomerId, handleCustomerChange, selectedMeterIds, setSelectedMeterIds, dateRange, setDateRange, loading]);
-
+  }, [combinedLogs, chartConfig, filterValues]);
 
   return (
     <div className="bg-white rounded-lg py-12 shadow-md h-[600px]">
@@ -287,8 +268,10 @@ export default function LogsChartView({
             dataColumns={dataColumns}
           />
         }
-        filterMenuComponent={FilterMenuContent}
-        initialLoading={loading}
+        filterColumns={filterableColumns}
+        onFilterChange={handleFilterChange}
+        filterMenuProps={{ live: false }}
+        initialLoading={chartConfig.initialLoading}
         fallbackMessage="No data found for the selected filters."
       />
     </div>

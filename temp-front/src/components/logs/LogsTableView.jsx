@@ -1,34 +1,23 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import DataTable from '../table/DataTable';
 import ExportButton from '../ui/ExportButton';
 import { FaFileExcel } from 'react-icons/fa';
 import InputField from '../fields/InputField';
 import SelectField from '../fields/SelectField';
-import Button from '../ui/Button';
+import FilterMenu from '../table/FilterMenu';
 import { DateTime } from 'luxon';
 
 /**
  * Component to display historical log data in a table format.
  */
-export default function LogsTableView({
-  combinedLogs,
-  customers,
-  customerMappings,
-  selectedCustomerId,
-  handleCustomerChange,
-  selectedMeterIds,
-  setSelectedMeterIds,
-  dateRange,
-  setDateRange,
-  loading
-}) {
-  const data = useMemo(() => combinedLogs, [combinedLogs]);
+export default function LogsTableView({ combinedLogs }) {
+  const [filters, setFilters] = useState({});
 
   const columns = useMemo(() => [
     {
       key: 'meter_id',
       header: 'Meter ID',
-      accessor: row => row.meter_id ?? 'N/A',
+      accessor: row => row.meter_id ?? 'N/A', // Using nullish coalescing for safety
     },
     {
       key: 'time',
@@ -38,100 +27,43 @@ export default function LogsTableView({
     { key: 'ua', header: 'Ua (V)', accessor: row => row.ua ?? 'N/A' },
     { key: 'ub', header: 'Ub (V)', accessor: row => row.ub ?? 'N/A' },
     { key: 'uc', header: 'Uc (V)', accessor: row => row.uc ?? 'N/A' },
+    // **New Column for zygsz (Energy)**
     { key: 'zygsz', header: 'Energy (kWh)', accessor: row => row.zygsz ?? 'N/A' },
     { key: 'ia', header: 'Ia (A)', accessor: row => row.ia ?? 'N/A' },
     { key: 'ib', header: 'Ib (A)', accessor: row => row.ib ?? 'N/A' },
     { key: 'ic', header: 'Ic (A)', accessor: row => row.ic ?? 'N/A' },
     { key: 'u', header: 'U (V)', accessor: row => row.u ?? 'N/A' },
     { key: 'f', header: 'Freq (Hz)', accessor: row => row.f ?? 'N/A' },
+    // Add other fields as needed for the table
   ], []);
 
-  // **New: Create the filter menu component content dynamically based on props**
-  const FilterMenuContent = useCallback(() => {
-    const customerOptions = customers.map(c => ({
-      label: c.customer || `Customer ID: ${c.id}`,
-      value: c.id,
-    }));
-    
-    const metersForSelectedCustomer = customerMappings
-      .filter(m => m.customer_id === selectedCustomerId)
-      .map(m => m.meter_id);
+  // Filter the data based on the local filters
+  const filteredData = useMemo(() => {
+    let result = combinedLogs;
+    if (Object.keys(filters).length > 0) {
+      result = result.filter(log => {
+        return Object.entries(filters).every(([key, value]) => {
+          if (!value) return true;
+          // The search logic can now be simplified as the data is flat
+          return String(log[key] ?? '').toLowerCase().includes(String(value).toLowerCase());
+        });
+      });
+    }
 
-    const handleSelectAllMeters = (checked) => {
-      if (checked) {
-          setSelectedMeterIds(metersForSelectedCustomer);
-      } else {
-          setSelectedMeterIds([]);
-      }
-    };
+    // Add debug log
+    console.debug('[LogsTableView] rows:', result.length, 'first:', result[0]);
 
-    const handleIndividualMeterChange = (meterId, checked) => {
-      if (checked) {
-        setSelectedMeterIds(prev => [...prev, meterId]);
-      } else {
-        setSelectedMeterIds(prev => prev.filter(id => id !== meterId));
-      }
-    };
+    return result;
+  }, [combinedLogs, filters]);
 
-    const handleDateChange = (type) => (e) => {
-      setDateRange(prev => ({ ...prev, [type]: e.target.value ? new Date(e.target.value) : null }));
-    };
 
-    return (
-      <div className="flex flex-col sm:flex-row gap-4 p-4 bg-gray-100 rounded-lg shadow-inner mb-8">
-        {/* Customer Selection */}
-        <div className="w-full sm:w-1/3">
-          <SelectField
-            label="Customer"
-            options={customerOptions}
-            value={selectedCustomerId}
-            onChange={handleCustomerChange}
-            placeholder="Select a customer"
-            disabled={loading}
-          />
-        </div>
-
-        {/* Meter Selection */}
-        <div className="w-full sm:w-1/3">
-          <div className="text-sm font-medium text-gray-700 mb-1">Meters</div>
-          <div className="bg-white p-2 rounded-md shadow-sm border border-gray-300 max-h-40 overflow-y-auto">
-            {selectedCustomerId && metersForSelectedCustomer.length > 0 ? (
-                <>
-                    <Button type="button" onClick={() => handleSelectAllMeters(selectedMeterIds.length !== metersForSelectedCustomer.length)} toggled={selectedMeterIds.length === metersForSelectedCustomer.length}>
-                      Select All
-                    </Button>
-                    <hr className="my-2 border-gray-200" />
-                    {metersForSelectedCustomer.map(meterId => (
-                        <Button key={meterId} type="button" onClick={() => handleIndividualMeterChange(meterId, !selectedMeterIds.includes(meterId))} toggled={selectedMeterIds.includes(meterId)}>
-                          {meterId}
-                        </Button>
-                    ))}
-                </>
-            ) : (
-                <p className="text-gray-500 text-sm">No meters available.</p>
-            )}
-          </div>
-        </div>
-
-        {/* Date Range Selection */}
-        <div className="w-full sm:w-1/3 flex flex-col gap-2">
-            <InputField 
-              label="Start Time"
-              type="datetime-local"
-              value={dateRange.startDate ? dateRange.startDate.toISOString().slice(0, 16) : ''}
-              onChange={handleDateChange('startDate')}
-            />
-            <InputField 
-              label="End Time"
-              type="datetime-local"
-              value={dateRange.endDate ? dateRange.endDate.toISOString().slice(0, 16) : ''}
-              onChange={handleDateChange('endDate')}
-            />
-        </div>
-      </div>
-    );
-  }, [customers, customerMappings, selectedCustomerId, handleCustomerChange, selectedMeterIds, setSelectedMeterIds, dateRange, setDateRange, loading]);
-
+  const filterableColumns = useMemo(() => [
+    {
+      key: 'meter_id',
+      header: 'Meter ID',
+      field: InputField,
+    },
+  ], []);
 
   return (
     <div className='mt-8'>
@@ -141,7 +73,7 @@ export default function LogsTableView({
           <p className="opacity-70">Detailed records from all meter logs.</p>
         </div>
         <ExportButton
-          data={data}
+          data={filteredData}
           columns={columns}
           fileName="meter_logs"
           intent="primary"
@@ -153,12 +85,12 @@ export default function LogsTableView({
       </div>
       <DataTable
         title="Log Records"
-        data={data}
+        data={filteredData}
         columns={columns}
         searchable={true}
         selection={false}
         showId={true}
-        filterMenuComponent={FilterMenuContent}
+        filterComponent={<FilterMenu columns={filterableColumns} onFilterChange={setFilters} />}
       />
     </div>
   );
