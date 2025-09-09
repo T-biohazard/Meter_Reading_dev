@@ -30,6 +30,7 @@ import RackDashboard from "./pages/RackDashboard";
 import RealTimeData from "./pages/RealTimeData";
 import LogsDashboard from "./pages/LogsDashboard";
 import PowerUsageDashboard from "./pages/PowerUsageDashboard";
+import PowerUsageLogDashboard from "./pages/PowerUsageLogDashboard";
 // (optional) import '@fortawesome/fontawesome-free/css/regular.min.css';
 
 
@@ -66,7 +67,7 @@ export default function App() {
               <Route path="menu-page-management" element={<MenuAndPageManagement />} />
               <Route path="real-time-graph" element={<RealTimeData />} />
               <Route path="logs" element={<LogsDashboard />} />
-              <Route path="report-power-usage" element={<PowerUsageDashboard /> } />
+              <Route path="report-power-usage" element={<PowerUsageLogDashboard /> } />
               {/* Protected routes that require authentication */}
               <Route element={<ProtectedRoute />}>
                 <Route path="dashboard" element={<Dashboard />} />
