@@ -128,8 +128,8 @@ export function useFastApi() {
       createMeterReadingTopic2Logs: (payload) => FastApiService.createMeterReadingTopic2Logs(payload, token),
 
       // Combined Meter Readings Logs
-      listCombinedLogsByMeter: (meter_id, limit) => FastApiService.listCombinedLogsByMeter(meter_id, limit, token),
-      listCombinedLogsRecent: (limit) => FastApiService.listCombinedLogsRecent(limit, token),
+      listCombinedLogsByMeter: (meter_id, limit, startDate, endDate) => FastApiService.listCombinedLogsByMeter(meter_id, limit, startDate, endDate, token),
+      listCombinedLogsRecent: (limit, startDate, endDate) => FastApiService.listCombinedLogsRecent(limit, startDate, endDate, token),
     };
   }, [token]);
 

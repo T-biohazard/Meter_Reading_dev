@@ -1,4 +1,3 @@
-// Corrected FastApiService.js
 /**
  * @fileoverview FastApiService: handles API communication with the FastAPI backend.
  */
@@ -151,10 +150,18 @@ const FastApiService = {
     apiRequest("/meter_readings_topic2_logs/", { method: "POST", body: JSON.stringify(payload) }, token),
 
   // ===== Combined Meter Readings Logs =====
-  listCombinedLogsByMeter: (meter_id, limit = 10, token = null) =>
-    apiRequest(`/meter_readings_combined_logs/${meter_id}?limit=${limit}`, { method: "GET" }, token),
-  listCombinedLogsRecent: (limit = 10, token = null) =>
-    apiRequest(`/meter_readings_combined_logs/?limit=${limit}`, { method: "GET" }, token),
+  listCombinedLogsByMeter: (meter_id, limit = 10, startDate = null, endDate = null, token = null) => {
+    let path = `/meter_readings_combined_logs/${meter_id}?limit=${limit}`;
+    if (startDate) path += `&start_date=${startDate.toISOString()}`;
+    if (endDate) path += `&end_date=${endDate.toISOString()}`;
+    return apiRequest(path, { method: "GET" }, token);
+  },
+  listCombinedLogsRecent: (limit = 10, startDate = null, endDate = null, token = null) => {
+    let path = `/meter_readings_combined_logs/?limit=${limit}`;
+    if (startDate) path += `&start_date=${startDate.toISOString()}`;
+    if (endDate) path += `&end_date=${endDate.toISOString()}`;
+    return apiRequest(path, { method: "GET" }, token);
+  },
 };
 
 export default FastApiService;
