@@ -1,3 +1,4 @@
+// src/components/Chart.jsx
 import React, {
   useRef,
   useEffect,
@@ -8,7 +9,6 @@ import React, {
   useCallback,
 } from 'react';
 import { Chart as ChartJS, registerables } from 'chart.js';
-import zoomPlugin from 'chartjs-plugin-zoom';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import clsx from 'clsx';
 import Button from '../ui/Button';
@@ -16,7 +16,7 @@ import { SlidersHorizontal, X, Download } from 'lucide-react';
 import { useOutside } from '../../hooks/useOutside';
 import FilterMenu from '../table/FilterMenu';
 
-ChartJS.register(...registerables, zoomPlugin, annotationPlugin);
+ChartJS.register(...registerables, annotationPlugin);
 
 const Chart = forwardRef(
   (
@@ -27,16 +27,14 @@ const Chart = forwardRef(
       className,
       fallbackMessage = 'No data to display.',
       chartOptionsComponent,
-      allowZoomAndPan = false,
       annotations = [],
       animationDuration = 1000,
       tooltipCallback,
       initialLoading = false,
-      theme = 'light',
-      onZoom,
       filterColumns,
       onFilterChange,
       filterMenuProps = {},
+      onClick, // 👈 New onClick prop
     },
     ref
   ) => {
@@ -47,7 +45,6 @@ const Chart = forwardRef(
     const [chartLoaded, setChartLoaded] = useState(false);
     useOutside(optionsDrawerRef, () => setIsOptionsDrawerOpen(false));
 
-    // Refactored hasData to check for at least one numeric, finite value
     const hasData = useMemo(() => {
       if (!data || !data.datasets || data.datasets.length === 0) return false;
       return data.datasets.some(dataset =>
@@ -55,23 +52,6 @@ const Chart = forwardRef(
         dataset.data.some(v => v !== null && v !== undefined && !Number.isNaN(Number(v)))
       );
     }, [data]);
-
-    const themeColors = useMemo(() => {
-      if (theme === 'dark') {
-        return {
-          background: '#1f2937',
-          text: '#f9fafb',
-          grid: '#4b5563',
-          border: '#6b7280',
-        };
-      }
-      return {
-        background: '#ffffff',
-        text: '#111827',
-        grid: '#e5e7eb',
-        border: '#d1d5db',
-      };
-    }, [theme]);
 
     const handleSaveChart = useCallback(() => {
       if (chartInstanceRef.current) {
@@ -92,6 +72,24 @@ const Chart = forwardRef(
         document.body.removeChild(link);
       }
     }, []);
+    
+    // Updated onClick handler
+    const handleClick = useCallback((event) => {
+      if (!onClick || !chartInstanceRef.current) return;
+      
+      const chart = chartInstanceRef.current;
+      const elements = chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+      
+      if (elements.length > 0) {
+        const firstElement = elements[0];
+        const dataIndex = firstElement.index;
+        const datasetIndex = firstElement.datasetIndex;
+        const value = chart.data.datasets[datasetIndex].data[dataIndex];
+        const label = chart.data.labels[dataIndex];
+        
+        onClick({ dataIndex, datasetIndex, value, label });
+      }
+    }, [onClick]);
 
     useEffect(() => {
       const cleanup = () => {
@@ -110,7 +108,6 @@ const Chart = forwardRef(
       const ctx = chartRef.current.getContext('2d');
 
       if (!hasData) {
-        // If there's no data, destroy any existing chart and show the fallback
         cleanup();
         setChartLoaded(false);
         return;
@@ -129,52 +126,41 @@ const Chart = forwardRef(
         plugins: {
           legend: {
             position: 'bottom',
-            labels: { color: themeColors.text },
+            labels: { color: '#111827' },
           },
           tooltip: {
-            backgroundColor: themeColors.background,
-            titleColor: themeColors.text,
-            bodyColor: themeColors.text,
-            borderColor: themeColors.border,
+            backgroundColor: '#ffffff',
+            titleColor: '#111827',
+            bodyColor: '#111827',
+            borderColor: '#d1d5db',
             borderWidth: 1,
             cornerRadius: 8,
             displayColors: true,
             callbacks: tooltipCallback,
           },
-          zoom: allowZoomAndPan
-            ? {
-                zoom: {
-                  wheel: { enabled: true, speed: 0.1 },
-                  drag: { enabled: true, backgroundColor: 'rgba(75,192,192,0.2)' },
-                  mode: 'xy',
-                },
-                pan: { enabled: true, mode: 'xy' },
-                limits: { y: { min: 0 } },
-                onZoom: onZoom,
-              }
-            : undefined,
           annotation: { annotations: annotations },
         },
         scales: {
           x: {
-            grid: { color: themeColors.grid },
-            ticks: { color: themeColors.text },
-            title: { color: themeColors.text },
+            grid: { color: '#e5e7eb' },
+            ticks: { color: '#111827' },
+            title: { color: '#111827' },
           },
           y: {
-            grid: { color: themeColors.grid },
-            ticks: { color: themeColors.text },
-            title: { color: themeColors.text },
+            grid: { color: '#e5e7eb' },
+            ticks: { color: '#111827' },
+            title: { color: '#111827' },
           },
         },
         ...options,
+        // Pass the new onClick handler to Chart.js options
+        onClick: handleClick,
       };
 
       if (chartInstanceRef.current) {
         chartInstanceRef.current.data = data;
         chartInstanceRef.current.options = chartOptions;
         chartInstanceRef.current.update();
-        // Immediately set chartLoaded to true on update
         setChartLoaded(true);
       } else {
         chartInstanceRef.current = new ChartJS(ctx, {
@@ -182,7 +168,6 @@ const Chart = forwardRef(
           data: data,
           options: chartOptions,
         });
-        // Immediately set chartLoaded to true on creation
         setChartLoaded(true);
       }
       return cleanup;
@@ -191,12 +176,10 @@ const Chart = forwardRef(
       data,
       options,
       hasData,
-      allowZoomAndPan,
       annotations,
       animationDuration,
       tooltipCallback,
-      themeColors,
-      onZoom,
+      handleClick
     ]);
 
     useImperativeHandle(ref, () => ({
@@ -207,31 +190,28 @@ const Chart = forwardRef(
     const showFallback = useMemo(() => !hasData && !initialLoading, [hasData, initialLoading]);
 
     return (
-      <div className={clsx('relative w-full h-full', className)} style={{ backgroundColor: themeColors.background }}>
-        <div className="flex justify-between p-2">
-          <div className="flex items-center space-x-2"></div>
-          <div className="flex space-x-2 z-10">
-            <Button onClick={handleSaveChart} leftIcon={Download} variant="icon" title="Download Chart">
+      <div className={clsx('relative w-full h-full bg-white', className)}>
+        <div className="absolute top-2 right-2 flex space-x-2 z-10">
+          <Button onClick={handleSaveChart} leftIcon={Download} variant="icon" title="Download Chart">
               Download
+          </Button>
+          {filterColumns && onFilterChange && (
+            <FilterMenu
+              columns={filterColumns}
+              onFilterChange={onFilterChange}
+              {...filterMenuProps}
+            />
+          )}
+          {chartOptionsComponent && (
+            <Button
+              onClick={() => setIsOptionsDrawerOpen(true)}
+              leftIcon={SlidersHorizontal}
+              variant="icon"
+              title="Chart Options"
+            >
+              Parameters
             </Button>
-            {filterColumns && onFilterChange && (
-              <FilterMenu
-                columns={filterColumns}
-                onFilterChange={onFilterChange}
-                {...filterMenuProps}
-              />
-            )}
-            {chartOptionsComponent && (
-              <Button
-                onClick={() => setIsOptionsDrawerOpen(true)}
-                leftIcon={SlidersHorizontal}
-                variant="icon"
-                title="Chart Options"
-              >
-                Parameters
-              </Button>
-            )}
-          </div>
+          )}
         </div>
         {initialLoading ? (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -259,13 +239,9 @@ const Chart = forwardRef(
             'fixed bottom-0 left-0 right-0 h-[33%] bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out flex flex-col rounded-t-lg',
             isOptionsDrawerOpen ? 'translate-y-0' : 'translate-y-full'
           )}
-          style={{ backgroundColor: themeColors.background, color: themeColors.text }}
         >
-          <div
-            className="flex-none flex items-center justify-between p-4 border-b"
-            style={{ borderColor: themeColors.border }}
-          >
-            <h2 className="text-lg font-semibold flex items-center gap-2">
+          <div className="flex-none flex items-center justify-between p-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-800">
               <SlidersHorizontal className="h-5 w-5" /> Chart Options
             </h2>
             <Button onClick={() => setIsOptionsDrawerOpen(false)} variant="icon" size="sm" title="Close Options">

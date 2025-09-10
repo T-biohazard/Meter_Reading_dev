@@ -1,541 +1,323 @@
+// src/components/Dashboard.jsx
+import React, { useState, useMemo, useEffect } from 'react';
+import Chart from '../components/charts/Chart';
+import DataTable from '../components/table/DataTable';
+import { BarChart2, List } from 'lucide-react';
 
-// src/pages/Dashboard.jsx
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Formik, Form } from "formik";
-import * as Yup from "yup";
+const generateData = (count) => {
+  const data = [];
+  const categories = ['Electronics', 'Home Goods', 'Apparel', 'Books'];
+  const months = ['January', 'February', 'March', 'April', 'May', 'June'];
+  for (let i = 0; i < count; i++) {
+    data.push({
+      product: `Product ${i + 1}`,
+      sales: Math.floor(Math.random() * 1000) + 100,
+      category: categories[Math.floor(Math.random() * categories.length)],
+      month: months[Math.floor(Math.random() * months.length)],
+      price: (Math.random() * 500).toFixed(2),
+    });
+  }
+  return data;
+};
 
-import authService from "../services/authService";
-import { useAuth } from "../app/AuthContext";
+// Our mock data
+const allSalesData = generateData(500);
 
-import InputField from "../components/fields/InputField";
-import Button from "../components/ui/Button";
-import IconPickerFA from "../components/ui/IconPickerFA";
+// New: StatCard Component
+const StatCard = ({ title, value, unit, truncate = false }) => (
+  <div className="p-5 bg-white rounded-xl shadow-md border border-gray-200">
+    <h2 className="text-sm font-semibold text-gray-500 mb-1">{title}</h2>
+    <p className={`text-lg font-bold text-gray-800 ${truncate ? 'truncate' : ''}`} title={truncate ? value : undefined}>
+      {value} {unit}
+    </p>
+  </div>
+);
 
-import { LayoutList, GitBranch, FileText, Link as LinkIcon } from "lucide-react";
+// New: Skeleton loaders for a better user experience during loading
+const CardSkeleton = () => <div className="h-24 bg-gray-200 rounded-xl animate-pulse"></div>;
+const ChartSkeleton = () => <div className="h-[400px] bg-gray-200 rounded-xl animate-pulse"></div>;
+const TableSkeleton = () => <div className="h-[400px] bg-gray-200 rounded-xl animate-pulse"></div>;
 
-/* ---------------- validation ---------------- */
-const Schema = Yup.object({
-  page_name: Yup.string().required("Page name is required."),
-  path: Yup.string()
-    .matches(/^\/[a-zA-Z0-9\-/_]*$/, "Path must start with / and use letters, numbers, -, _, and / only.")
-    .required("Path is required."),
-  menu_name: Yup.string().nullable(),
-  sub_menu_name: Yup.string().nullable(),
-  status: Yup.boolean().default(true),
-});
 
-/* ---------------- helpers (UI) ---------------- */
-function Section({ title, icon: Icon, description, children }) {
+export default function Dashboard() {
+  const [tableData, setTableData] = useState([]);
+  const [activeFilter, setActiveFilter] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Simulate a data fetch with a 1-second delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setTableData(allSalesData);
+      setIsLoading(false);
+    }, 1000); // 1-second delay
+    return () => clearTimeout(timer);
+  }, []);
+
+  // --- Chart Data ---
+  const monthlySalesChartData = useMemo(() => {
+    const salesByMonth = allSalesData.reduce((acc, item) => {
+      acc[item.month] = (acc[item.month] || 0) + item.sales;
+      return acc;
+    }, {});
+
+    const monthsOrder = ['January', 'February', 'March', 'April', 'May', 'June'];
+    const sortedSales = monthsOrder.map(month => salesByMonth[month] || 0);
+
+    return {
+      labels: monthsOrder,
+      datasets: [
+        {
+          label: 'Total Sales by Month',
+          data: sortedSales,
+          backgroundColor: 'rgba(54, 162, 235, 0.8)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, []);
+
+  const salesByCategoryChartData = useMemo(() => {
+    const salesByCategory = allSalesData.reduce((acc, item) => {
+      acc[item.category] = (acc[item.category] || 0) + item.sales;
+      return acc;
+    }, {});
+
+    const categories = Object.keys(salesByCategory);
+    const sales = Object.values(salesByCategory);
+
+    return {
+      labels: categories,
+      datasets: [
+        {
+          label: 'Sales by Category',
+          data: sales,
+          backgroundColor: [
+            'rgba(59, 130, 246, 0.6)',
+            'rgba(16, 185, 129, 0.6)',
+            'rgba(245, 158, 11, 0.6)',
+            'rgba(244, 63, 94, 0.6)',
+          ],
+          borderColor: [
+            'rgb(59, 130, 246)',
+            'rgb(16, 185, 129)',
+            'rgb(245, 158, 11)',
+            'rgb(244, 63, 94)',
+          ],
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, []);
+
+  const teamSkillData = {
+    labels: ['Communication', 'Problem-Solving', 'Technical Skill', 'Creativity', 'Teamwork'],
+    datasets: [
+      {
+        label: 'Team Performance',
+        data: [90, 85, 95, 75, 92],
+        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+        pointBorderColor: '#fff',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: 'rgba(75, 192, 192, 1)',
+      },
+    ],
+  };
+
+  const bugSeverityData = {
+    labels: ['Critical', 'High', 'Medium', 'Low', 'Trivial'],
+    datasets: [
+      {
+        label: 'Bug Severity Distribution',
+        data: [10, 40, 60, 25, 5],
+        backgroundColor: ['#e33333', '#ff9900', '#f4e300', '#00c000', '#36a3eb'],
+        borderColor: 'white',
+        borderWidth: 2,
+      },
+    ],
+  };
+
+  // --- Interaction Handlers ---
+  const handleChartClick = (type) => ({ label }) => {
+    let filteredRows;
+    if (type === 'bar') {
+      filteredRows = allSalesData.filter(row => row.month === label);
+    } else if (type === 'pie') {
+      filteredRows = allSalesData.filter(row => row.category === label);
+    }
+    setTableData(filteredRows);
+    setActiveFilter(label);
+  };
+
+  const handleClearFilter = () => {
+    setTableData(allSalesData);
+    setActiveFilter(null);
+  };
+
+  const dashboardMetrics = useMemo(() => {
+    const totalSales = tableData.reduce((sum, item) => sum + item.sales, 0);
+    const totalProducts = tableData.length;
+    const uniqueCategories = new Set(tableData.map(item => item.category)).size;
+    const averagePrice = totalSales > 0 ? tableData.reduce((sum, item) => sum + parseFloat(item.price), 0) / totalProducts : 0;
+
+    return {
+      totalSales: totalSales.toLocaleString('en-US'),
+      totalProducts: totalProducts,
+      uniqueCategories: uniqueCategories,
+      averagePrice: `$${averagePrice.toFixed(2)}`,
+    };
+  }, [tableData]);
+
   return (
-    <section className="border-b border-base-300/70 p-5">
-      <div className="mb-4 flex items-start gap-2">
-        {Icon ? <Icon className="w-5 h-5 opacity-70 mt-0.5" /> : null}
-        <div>
-          <h3 className="font-semibold text-lg leading-tight">{title}</h3>
-          {description ? <p className="text-sm opacity-70">{description}</p> : null}
+    <div className="min-h-screen p-8 bg-gray-50 text-gray-900">
+      <h1 className="text-3xl font-extrabold mb-8 text-center md:text-left">
+        Interactive Sales Dashboard 📊
+      </h1>
+
+      {/* Details Card Section */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <CardSkeleton /><CardSkeleton /><CardSkeleton /><CardSkeleton />
         </div>
-      </div>
-      <div className="space-y-4">{children}</div>
-    </section>
-  );
-}
-
-function ExistsChip({ exists }) {
-  const base =
-    "badge badge-sm inline-flex items-center align-middle leading-none px-2 py-[2px] rounded-full whitespace-nowrap relative -top-px";
-  return (
-    <span className={`${base} ${exists ? "badge-warning" : "badge-success"}`}>
-      {exists ? "Exists" : "Available"}
-    </span>
-  );
-}
-
-/* ---- IconInput: uses InputField; emoji button shows on hover OR focus ---- */
-function IconInput({ name, label, value, setFieldValue, placeholder = "fa-solid fa-house" }) {
-  const [open, setOpen] = useState(false);
-
-  // for the single-field dropdown search inside the modal
-  const [showList, setShowList] = useState(false);
-
-  return (
-    <div className="relative self-start group">
-      <InputField
-        name={name}
-        label={label}
-        labelBgClass="bg-base-100"
-        placeholder={placeholder}
-        inputClassName="pr-16"
-      />
-
-      {/* emoji opener on the right of the input */}
-      <button
-        type="button"
-        aria-label="Pick icon"
-        onClick={() => setOpen(true)}
-        className={[
-          "absolute right-2",
-          "top-[0.1rem]",
-          "h-8 w-8 rounded-full bg-base-200 hover:bg-base-300",
-          "flex items-center justify-center text-base leading-none",
-          "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity",
-          "shadow-sm",
-        ].join(" ")}
-      >
-        <span>🙂</span>
-      </button>
-
-      {/* modal */}
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-base-100 rounded-xl shadow-xl w-full max-w-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="font-semibold">Choose an icon</h4>
-              <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>
-                ✕
-              </button>
-            </div>
-            <div className="space-y-3">
-              {/* ========= REPLACED BLOCK START (now shows a grid of real icons) ========= */}
-              <div className="relative">
-                {/* The single reusable input is the search box */}
-                <InputField
-                  name={name}
-                  label="Search icons"
-                  labelBgClass="bg-base-100"
-                  placeholder={placeholder}
-                  inputClassName="pr-3"
-                  onFocus={() => setShowList(true)}
-                  onBlur={() => setTimeout(() => setShowList(false), 120)}
-                />
-
-                {(() => {
-                  // same set as your IconPickerFA (name + class) for grid rendering
-                  const GRID_ICONS = [
-                    { n: "Dashboard", c: "fa-solid fa-gauge" },
-                    { n: "Home", c: "fa-solid fa-house" },
-                    { n: "Users", c: "fa-solid fa-users" },
-                    { n: "User settings", c: "fa-solid fa-user-gear" },
-                    { n: "Settings", c: "fa-solid fa-gear" },
-                    { n: "Tools", c: "fa-solid fa-wrench" },
-                    { n: "Bell", c: "fa-solid fa-bell" },
-                    { n: "Shield", c: "fa-solid fa-shield-halved" },
-                    { n: "Lock", c: "fa-solid fa-lock" },
-                    { n: "Key", c: "fa-solid fa-key" },
-                    { n: "Box", c: "fa-solid fa-box" },
-                    { n: "Boxes", c: "fa-solid fa-boxes-stacked" },
-                    { n: "Folder", c: "fa-solid fa-folder" },
-                    { n: "Table", c: "fa-solid fa-table" },
-                    { n: "List", c: "fa-solid fa-list" },
-                    { n: "Clipboard", c: "fa-solid fa-clipboard" },
-                    { n: "Chart Up", c: "fa-solid fa-chart-line" },
-                    { n: "Chart Pie", c: "fa-solid fa-chart-pie" },
-                    { n: "Arrow Right", c: "fa-solid fa-arrow-right" },
-                    { n: "Rocket", c: "fa-solid fa-rocket" },
-                    { n: "Bell Slash", c: "fa-solid fa-bell-slash" },
-                    { n: "Database", c: "fa-solid fa-database" },
-                    { n: "Code", c: "fa-solid fa-code" },
-                    { n: "Sliders", c: "fa-solid fa-sliders" },
-                  ];
-                  const q = (value || "").toLowerCase().trim();
-                  const filtered = (q
-                    ? GRID_ICONS.filter(
-                        (it) => it.n.toLowerCase().includes(q) || it.c.toLowerCase().includes(q)
-                      )
-                    : GRID_ICONS
-                  ).slice(0, 150);
-
-                  return (
-                    showList && (
-                      <div className="absolute z-50 left-0 right-0 mt-1 rounded-lg border border-base-300 bg-base-100 shadow-xl p-2">
-                        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2 max-h-64 overflow-auto pr-1">
-                          {filtered.map((it) => (
-                            <button
-                              key={it.c}
-                              type="button"
-                              className={[
-                                "btn btn-ghost btn-sm h-10 min-h-0",
-                                "border border-transparent hover:border-base-300",
-                                value === it.c ? "btn-active" : "",
-                              ].join(" ")}
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => {
-                                setFieldValue(name, it.c);
-                                setShowList(false);
-                              }}
-                              title={`${it.n} (${it.c})`}
-                            >
-                              <i className={`${it.c} not-italic`} aria-hidden="true" />
-                            </button>
-                          ))}
-                          {!filtered.length && (
-                            <div className="col-span-full opacity-60 text-sm px-2 py-1">No matches</div>
-                          )}
-                        </div>
-
-                        <div className="mt-2 text-xs opacity-70">
-                          Tip: You can also paste any FA class like <code>fa-solid fa-user</code>.
-                        </div>
-                      </div>
-                    )
-                  );
-                })()}
-              </div>
-              {/* ========= REPLACED BLOCK END ========= */}
-
-              <div className="text-right">
-                <button className="btn btn-primary btn-sm" onClick={() => setOpen(false)}>
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatCard title="Total Sales" value={dashboardMetrics.totalSales} unit="USD" />
+          <StatCard title="Total Products" value={dashboardMetrics.totalProducts} />
+          <StatCard title="Unique Categories" value={dashboardMetrics.uniqueCategories} />
+          <StatCard title="Average Price" value={dashboardMetrics.averagePrice} />
         </div>
       )}
-    </div>
-  );
-}
 
-/* ---------------- page ---------------- */
-export default function Dashboard() {
-  const { token } = useAuth();
-  const [menuLocked, setMenuLocked] = useState(false);
-  const [subLocked, setSubLocked] = useState(false);
+      {/* Chart Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {isLoading ? (
+          <>
+            <ChartSkeleton /><ChartSkeleton /><ChartSkeleton /><ChartSkeleton />
+          </>
+        ) : (
+          <>
+            <div className="relative h-[400px] bg-white rounded-xl shadow-md p-6 flex flex-col" aria-label="Monthly Sales Chart">
+              <h2 className="text-xl font-semibold mb-2">Monthly Sales</h2>
+              <Chart
+                type="bar"
+                data={monthlySalesChartData}
+                onClick={handleChartClick('bar')}
+                options={{
+                  plugins: {
+                    tooltip: {
+                      callbacks: {
+                        label: function(context) {
+                          let label = context.dataset.label || '';
+                          if (label) {
+                            label += ': ';
+                          }
+                          label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(context.raw);
+                          return label;
+                        }
+                      }
+                    }
+                  }
+                }}
+              />
+            </div>
 
-  const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["menu-page-elements:composer"],
-    queryFn: () => authService.listMenuPageElements(token),
-    enabled: !!token,
-  });
+            <div className="relative h-[400px] bg-white rounded-xl shadow-md p-6 flex flex-col" aria-label="Sales by Category Pie Chart">
+              <h2 className="text-xl font-semibold mb-2">Sales by Category</h2>
+              <Chart
+                type="pie"
+                data={salesByCategoryChartData}
+                onClick={handleChartClick('pie')}
+                options={{
+                  plugins: {
+                    tooltip: {
+                      callbacks: {
+                        label: function(context) {
+                          const label = context.label || '';
+                          const value = context.raw;
+                          return `${label}: ${value.toLocaleString('en-US')} sales`;
+                        }
+                      }
+                    }
+                  }
+                }}
+              />
+            </div>
 
-  // Build menu + submenu lookups
-  const allMenus = useMemo(() => {
-    const map = new Map();
-    rows.forEach((r) => {
-      if (r.menu_name) {
-        if (!map.has(r.menu_name)) map.set(r.menu_name, { name: r.menu_name, icon: r.menu_icon || "" });
-        else if (r.menu_icon && !map.get(r.menu_name).icon) map.get(r.menu_name).icon = r.menu_icon;
-      }
-    });
-    return [...map.values()];
-  }, [rows]);
+            <div className="relative h-[400px] bg-white rounded-xl shadow-md p-6 flex flex-col" aria-label="Bug Severity Distribution Polar Area Chart">
+              <h2 className="text-xl font-semibold mb-2">Bug Severity Distribution</h2>
+              <Chart
+                type="polarArea"
+                data={bugSeverityData}
+                options={{
+                  plugins: {
+                    tooltip: {
+                      callbacks: {
+                        label: function(context) {
+                          const label = context.label || '';
+                          const value = context.raw;
+                          return `${label}: ${value.toLocaleString()} bugs`;
+                        }
+                      }
+                    }
+                  }
+                }}
+              />
+            </div>
 
-  const submenusByMenu = useMemo(() => {
-    const map = new Map();
-    rows.forEach((r) => {
-      if (!r.menu_name || !r.sub_menu_name) return;
-      if (!map.has(r.menu_name)) map.set(r.menu_name, new Map());
-      const inner = map.get(r.menu_name);
-      if (!inner.has(r.sub_menu_name)) inner.set(r.sub_menu_name, r.sub_menu_icon || "");
-      else if (r.sub_menu_icon && !inner.get(r.sub_menu_name)) inner.set(r.sub_menu_name, r.sub_menu_icon);
-    });
-    return map;
-  }, [rows]);
+            <div className="relative h-[400px] bg-white rounded-xl shadow-md p-6 flex flex-col" aria-label="Team Skills Radar Chart">
+              <h2 className="text-xl font-semibold mb-2">Team Skills Radar</h2>
+              <Chart
+                type="radar"
+                data={teamSkillData}
+                options={{
+                  plugins: {
+                    tooltip: {
+                      callbacks: {
+                        label: function(context) {
+                          const label = context.dataset.label || '';
+                          const value = context.raw;
+                          return `${label}: ${value}%`;
+                        }
+                      }
+                    }
+                  }
+                }}
+              />
+            </div>
+          </>
+        )}
+      </div>
 
-  // helpers
-  const menuOptions = allMenus.map((m) => ({ label: m.name, value: m.name }));
-  const subOptions = (menuName) => {
-    const m = submenusByMenu.get(menuName);
-    if (!m) return [];
-    return [...m.keys()].map((s) => ({ label: s, value: s }));
-  };
-  const existsMenu = (name) => !!allMenus.find((m) => m.name === name);
-  const existsSub = (menu, sub) => {
-    const m = submenusByMenu.get(menu);
-    return !!(m && m.has(sub));
-  };
-
-  // initial values
-  const initialValues = {
-    menu_name: "",
-    menu_icon: "",
-    sub_menu_name: "",
-    sub_menu_icon: "",
-    page_name: "",
-    page_icon: "",
-    path: "",
-    status: true,
-  };
-
-  return (
-    <div className="max-w-none mr-auto px-4 md:px-8 lg:px-10 py-8">
-      <style>{`
-        input[name="menu_icon"],
-        input[name="sub_menu_icon"],
-        input[name="page_icon"] { padding-right: 4rem; }
-      `}</style>
-
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold">Menu Composer</h1>
-        <p className="opacity-70">Create or attach a page under a Menu / Sub-menu. Pick icons and toggle status.</p>
-      </header>
-
-      <div className="bg-base-100">
-        <div className="card-body">
-          {isLoading ? (
-            <div className="animate-pulse h-24">Loading suggestions…</div>
-          ) : (
-            <Formik
-              initialValues={initialValues}
-              validationSchema={Schema}
-              onSubmit={async (values, { setSubmitting, resetForm }) => {
-                try {
-                  const payload = {
-                    page_name: values.page_name,
-                    path: values.path,
-                    menu_name: values.menu_name || null,
-                    menu_icon: values.menu_icon || null,
-                    sub_menu_name: values.sub_menu_name || null,
-                    sub_menu_icon: values.sub_menu_icon || null,
-                    page_icon: values.page_icon || null,
-                    status: values.status ? 1 : 0,
-                  };
-                  await authService.createMenuPageElement(payload, token);
-                  resetForm();
-                  setMenuLocked(false);
-                  setSubLocked(false);
-                } catch (e) {
-                  console.error("Create failed:", e);
-                } finally {
-                  setSubmitting(false);
-                }
-              }}
-            >
-              {({ values, setFieldValue, isSubmitting, isValid, handleReset }) => {
-                const menuExists = !!values.menu_name && existsMenu(values.menu_name);
-                const submenuExists =
-                  !!values.menu_name && !!values.sub_menu_name && existsSub(values.menu_name, values.sub_menu_name);
-
-                const lockMenu = (name) => {
-                  const found = allMenus.find((m) => m.name === name);
-                  if (found?.icon) setFieldValue("menu_icon", found.icon);
-                  setMenuLocked(true);
-                };
-                const lockSub = (sub) => {
-                  const m = submenusByMenu.get(values.menu_name);
-                  const icon = m?.get(sub);
-                  if (icon) setFieldValue("sub_menu_icon", icon);
-                  setSubLocked(true);
-                };
-
-                return (
-                  <Form noValidate className="space-y-6">
-                    {/* ---------- Parent menu box (2 cols) ---------- */}
-                    <Section
-                      title="Parent menu"
-                      icon={LayoutList}
-                      description="Pick existing or type a new parent menu."
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                        {/* left */}
-                        <div className="space-y-2 self-start">
-                          <div className="relative group">
-                            <InputField
-                              name="menu_name"
-                              label="Menu name"
-                              labelBgClass="bg-base-100"
-                              placeholder="e.g. Main, Settings"
-                              dropdown={!menuLocked}
-                              options={menuOptions}
-                              onSelect={(opt) => {
-                                setFieldValue("menu_name", opt.value);
-                                lockMenu(opt.value);
-                              }}
-                              readOnly={menuLocked}
-                              inputClassName={menuLocked ? "pr-20" : undefined}
-                              help={
-                                !values.menu_name ? (
-                                  "Pick existing or type a new menu name."
-                                ) : menuExists ? (
-                                  <span className="inline-flex items-center gap-2">
-                                    <span>This matches an</span>
-                                    <ExistsChip exists={menuExists} />
-                                    <span>menu (locked).</span>
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-2">
-                                    <span>New menu will be created —</span>
-                                    <ExistsChip exists={false} />
-                                  </span>
-                                )
-                              }
-                            />
-
-                            {menuLocked && (
-                              <button
-                                type="button"
-                                className={[
-                                  "absolute right-2 top-[0.1rem]",
-                                  "btn btn-ghost btn-xs",
-                                  "opacity-80 hover:opacity-100",
-                                ].join(" ")}
-                                onClick={() => setMenuLocked(false)}
-                              >
-                                Change
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* right: icon */}
-                        <IconInput
-                          name="menu_icon"
-                          label="Menu icon (optional)"
-                          value={values.menu_icon}
-                          setFieldValue={setFieldValue}
-                        />
-                      </div>
-                    </Section>
-
-                    {/* ---------- Sub-menu box (2 cols) ---------- */}
-                    <Section
-                      title="Sub-menu"
-                      icon={GitBranch}
-                      description="Choose a Menu to see its Sub-menus, or type a new one."
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                        {/* left with SAME inline chip + inside input Change */}
-                        <div className="space-y-2 self-start">
-                          <div className="relative group">
-                            <InputField
-                              name="sub_menu_name"
-                              label="Sub-menu name (optional)"
-                              labelBgClass="bg-base-100"
-                              placeholder={values.menu_name ? "Pick or type…" : "Pick a Menu first"}
-                              disabled={!values.menu_name}
-                              dropdown={!subLocked && !!values.menu_name}
-                              options={subOptions(values.menu_name)}
-                              onSelect={(opt) => {
-                                setFieldValue("sub_menu_name", opt.value);
-                                lockSub(opt.value);
-                              }}
-                              readOnly={subLocked}
-                              inputClassName={subLocked ? "pr-20" : undefined}
-                              help={
-                                !values.menu_name ? (
-                                  "Choose a Menu to see its Sub-menus."
-                                ) : !values.sub_menu_name ? (
-                                  "Pick existing or type a new sub-menu."
-                                ) : submenuExists ? (
-                                  <span className="inline-flex items-center gap-2">
-                                    <span>This matches an</span>
-                                    <ExistsChip exists={submenuExists} />
-                                    <span>sub-menu (locked).</span>
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-2">
-                                    <span>New sub-menu will be created —</span>
-                                    <ExistsChip exists={false} />
-                                  </span>
-                                )
-                              }
-                            />
-
-                            {subLocked && (
-                              <button
-                                type="button"
-                                className={[
-                                  "absolute right-2 top-[0.1rem]",
-                                  "btn btn-ghost btn-xs",
-                                  "opacity-80 hover:opacity-100",
-                                ].join(" ")}
-                                onClick={() => setSubLocked(false)}
-                              >
-                                Change
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* right: sub icon */}
-                        <IconInput
-                          name="sub_menu_icon"
-                          label="Sub-menu icon (optional)"
-                          value={values.sub_menu_icon}
-                          setFieldValue={setFieldValue}
-                        />
-                      </div>
-                    </Section>
-
-                    {/* ---------- Page (child) box ---------- */}
-                    <Section
-                      title="Page"
-                      icon={FileText}
-                      description="This is the actual page link that appears under the menu/sub-menu."
-                    >
-                      {/* 3 fields in a single row on md+ */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-                        <div className="space-y-2 self-start">
-                          <InputField name="page_name" label="Page name" labelBgClass="bg-base-100" required />
-                        </div>
-
-
-                        
-                        <div className="space-y-2 self-start">
-                          <InputField
-                            name="path"
-                            label={
-                              <>
-                                <LinkIcon className="inline-block h-3.5 w-3.5 -mt-0.5 mr-1 opacity-70" />
-                                Path
-                              </>
-                            }
-                            labelBgClass="bg-base-100"
-                            placeholder="/users"
-                            required
-                            help="Must start with a slash, e.g. /users or /settings/profile."
-                          />
-                          
-                        </div>
-                        <IconInput
-                          name="page_icon"
-                          label="Page icon (optional)"
-                          value={values.page_icon}
-                          setFieldValue={setFieldValue}
-                        />
-                      </div>
-                    </Section>
-
-                    {/* Actions: Status on the left, Save/Reset on the right */}
-                    <div className="pt-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <label className="text-sm font-sans font-medium opacity-80">Status</label>
-                        <input
-                          type="checkbox"
-                          className="toggle toggle-primary"
-                          checked={values.status}
-                          onChange={(e) => setFieldValue("status", e.target.checked)}
-                        />
-                        <span className="opacity-80">{values.status ? "Active" : "Inactive"}</span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button intent="primary" type="submit" disabled={!isValid || isSubmitting} loading={isSubmitting}>
-                          Save
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            handleReset();
-                            setMenuLocked(false);
-                            setSubLocked(false);
-                          }}
-                          disabled={isSubmitting}
-                        >
-                          Reset
-                        </Button>
-                      </div>
-                    </div>
-                  </Form>
-                );
-              }}
-            </Formik>
-          )}
-        </div>
+      {/* Data Table Section */}
+      <div className="bg-white p-6 rounded-xl shadow-md">
+        {isLoading ? (
+          <TableSkeleton />
+        ) : (
+          <>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-700">Sales Transactions {activeFilter && `(Filtered by: ${activeFilter})`}</h2>
+              {activeFilter && (
+                <button onClick={handleClearFilter} className="text-sm text-blue-500 hover:text-blue-700 transition-colors duration-200" aria-label="Clear all filters">
+                  Clear Filter
+                </button>
+              )}
+            </div>
+            <DataTable
+              title="Sales"
+              data={tableData}
+              columns={[
+                { key: 'product', header: 'Product' },
+                { key: 'category', header: 'Category' },
+                { key: 'month', header: 'Month' },
+                { key: 'sales', header: 'Sales', isSortable: true },
+                { key: 'price', header: 'Price', isSortable: true, render: (val) => `$${val}` },
+              ]}
+            />
+          </>
+        )}
       </div>
     </div>
   );
 }
-
-

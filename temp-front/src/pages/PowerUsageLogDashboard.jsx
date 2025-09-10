@@ -14,14 +14,26 @@ import SelectField from '../components/fields/SelectField';
 import Button from '../components/ui/Button';
 import FilterMenu from '../components/table/FilterMenu';
 import DateField from '../components/fields/DateField';
+import { toPng } from 'html-to-image';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { FaFilePdf } from 'react-icons/fa';
 
+/** ------------------------------
+ * Export button component
+ * ------------------------------ */
+const ExportButton = ({ onClick }) => (
+  <Button onClick={onClick} variant="icon" leftIcon={FaFilePdf}>
+    Export PDF
+  </Button>
+);
 
 /** ------------------------------
  * Utility function to handle raw log data
  * ------------------------------ */
 const aggregateLogs = (logs) => {
   if (!logs || !Array.isArray(logs)) return [];
-  
+
   const processedLogs = logs.map(item => ({
     // Merge properties from topic1 and topic2, prioritizing topic2's 'zygsz'
     ua: item.topic1?.ua,
@@ -166,7 +178,6 @@ const Fieldset = ({ legend, children, className = '' }) => {
 };
 
 
-
 /** ------------------------------
  * Chart Options Form
  * ------------------------------ */
@@ -224,7 +235,7 @@ const ChartOptionsForm = ({ onApply, initialValues, dataColumns }) => {
           </Button>
         ))}
       </Fieldset>
-      
+
       <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4">
         <Fieldset legend="chart options">
           <div className="flex flex-col gap-2 pt-3">
@@ -279,6 +290,11 @@ export default function PowerUsageLogDashboard() {
   const [customers, setCustomers] = useState([]);
   const [customerMappings, setCustomerMappings] = useState([]);
 
+  // Ref for the table container
+  const tableWrapperRef = useRef(null);
+  // Using a Map for dynamic refs for each chart
+  const chartRefs = useRef(new Map());
+
   const [chartConfig, setChartConfig] = useState({
     yAxisColumns: ['zyggl'],
     chartType: 'line',
@@ -295,7 +311,7 @@ export default function PowerUsageLogDashboard() {
         api.listCustomers(),
         api.listCustomerMappings(),
       ]);
-      
+
       setMeters(allMeters);
       setCustomers(allCustomers);
       setCustomerMappings(allCustomerMappings);
@@ -316,7 +332,7 @@ export default function PowerUsageLogDashboard() {
   const fetchMeterReadings = useCallback(async () => {
     setInitialLoading(true);
     const meterLogs = {};
-    
+
     // Determine which meters to fetch data for
     let metersToFetch = [];
     if (selectedMeterId && selectedMeterId !== 'all') {
@@ -340,11 +356,11 @@ export default function PowerUsageLogDashboard() {
 
       try {
         const data = await api.listCombinedLogsByMeter(
-          meter.id, 
+          meter.id,
           50,
-          { 
-            start_time: startDate, 
-            end_time: endDate 
+          {
+            start_time: startDate,
+            end_time: endDate
           }
         );
         const readings = aggregateLogs(data?.readings || []);
@@ -381,8 +397,123 @@ export default function PowerUsageLogDashboard() {
     setStartDate(newFilters.startDate);
     setEndDate(newFilters.endDate);
     // This clears the data and triggers a reload
-    setLogsByMeterType({}); 
+    setLogsByMeterType({});
   }, []);
+
+  /** ------------------------------------------------------------------
+   * PDF Export Handler - Now correctly handles multiple dynamic charts
+   * ------------------------------------------------------------------ */
+  const handleExportPdf = async () => {
+    try {
+      const doc = new jsPDF('p', 'pt', 'a4');
+      let y = 40; // Initial Y position with some margin
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+
+      // Add report header
+      doc.setFontSize(22);
+      doc.text("Power Usage Log Report", pageWidth / 2, y, { align: 'center' });
+      y += 20;
+      doc.setFontSize(10);
+      doc.text(`Report Date: ${new Date().toLocaleDateString()}`, pageWidth / 2, y, { align: 'center' });
+      y += 30;
+
+      // Loop through each dynamic chart
+      const meterTypes = Object.keys(logsByMeterType);
+      for (const type of meterTypes) {
+        const chartContainer = chartRefs.current.get(type);
+
+        if (chartContainer) {
+          const chartCanvas = chartContainer.querySelector('canvas');
+          if (chartCanvas) {
+            const chartDataUrl = chartCanvas.toDataURL('image/png', 1.0);
+            const imgProps = doc.getImageProperties(chartDataUrl);
+            const imgWidth = pageWidth - (2 * margin);
+            const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+
+            // Add chart title
+            doc.setFontSize(14);
+            doc.text(`${type} Meter Readings`, margin, y);
+            y += 20;
+
+            // Add chart image
+            doc.addImage(chartDataUrl, 'PNG', margin, y, imgWidth, imgHeight);
+            y += imgHeight + 30;
+
+            // Check if a new page is needed for the next chart/table
+            if (y + 100 > doc.internal.pageSize.getHeight()) {
+              doc.addPage();
+              y = 40;
+            }
+          }
+        }
+      }
+
+      // Add a new page for the table if charts are present
+      if (meterTypes.length > 0) {
+          doc.addPage();
+          y = 40;
+      }
+      
+      // Add table using jspdf-autotable
+      if (summaryTableData.rows.length > 0) {
+        doc.setFontSize(22);
+        doc.text("Meter Data Table", pageWidth / 2, y, { align: 'center' });
+        y += 30;
+        
+        // Prepare table data for jspdf-autotable
+        const tableHeaders = tableColumns.map(col => col.header);
+        const tableBody = summaryTableData.rows.map(row => tableColumns.map(col => {
+          let value = row[col.key];
+          if (col.render) {
+            value = col.render(value);
+          }
+          return value;
+        }));
+
+        autoTable(doc, {
+          startY: y,
+          head: [tableHeaders],
+          body: tableBody,
+          foot: [[
+            { content: 'Total Additional Power Consumption', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } },
+            { content: summaryTableData.totals.totalAdditionalPower.toFixed(2), styles: { halign: 'right', fontStyle: 'bold' } }
+          ]],
+          theme: 'grid',
+          margin: { left: margin, right: margin },
+          styles: {
+            fontSize: 10,
+            cellPadding: 4,
+            halign: 'center',
+          },
+          headStyles: {
+            fillColor: [22, 78, 99], // Tailwind's 'teal-800'
+            textColor: 255,
+            fontStyle: 'bold',
+          },
+          columnStyles: {
+            1: { halign: 'right' },
+            2: { halign: 'right' },
+            3: { halign: 'right' },
+            4: { halign: 'right' },
+            5: { halign: 'right' },
+          },
+          didDrawPage: (data) => {
+              // Add a page number on each page
+              doc.setFontSize(8);
+              const pageCount = doc.internal.getNumberOfPages();
+              doc.text(`Page ${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+          }
+        });
+      }
+
+      doc.save("power-usage-dashboard.pdf");
+    } catch (err) {
+      console.error("Export PDF error:", err);
+      alert('Failed to generate PDF. Please try again.');
+    }
+  };
+
 
   // Filterable columns for the FilterMenu
   const filterableColumns = useMemo(() => {
@@ -390,7 +521,7 @@ export default function PowerUsageLogDashboard() {
       label: cust.customer,
       value: cust.id,
     }));
-    
+
     const relevantMeters = customerMappings
       .filter(m => m.customer_id === selectedCustomerId)
       .map(m => meters.find(meter => meter.id === m.meter_id))
@@ -452,11 +583,10 @@ export default function PowerUsageLogDashboard() {
   // Chart and Table data columns for display
   const dataColumns = useMemo(() => {
     return [
-      'ua', 'ub', 'uc', 'ia', 'ib', 'ic', 'uab', 'ubc', 'uca', 
+      'ua', 'ub', 'uc', 'ia', 'ib', 'ic', 'uab', 'ubc', 'uca',
       'pa', 'pb', 'pc', 'pfa', 'pfb', 'pfc', 'zglys', 'f', 'u', 'i', 'zyggl', 'zygsz'
     ];
   }, []);
-  
 
   /* ------------------------------------------------------------------
    * This hook processes the raw logs into the summary table format.
@@ -475,14 +605,14 @@ export default function PowerUsageLogDashboard() {
     allFetchedMeterIds.forEach(meterId => {
       const primaryReading = logsByMeterType['Primary']?.find(log => log.meter_id === meterId) || null;
       const secondaryReading = logsByMeterType['Secondary']?.find(log => log.meter_id === meterId) || null;
-      
+
       const primarySource = primaryReading?.zyggl ?? 0;
       const secondarySource = secondaryReading?.zyggl ?? 0;
       const entailedPower = 0.5; // Fixed value as per the image
-      
+
       // Calculations
-      const totalConsumption = primarySource + secondarySource; 
-      const additionalPower = Math.max(0, totalConsumption - entailedPower); 
+      const totalConsumption = primarySource + secondarySource;
+      const additionalPower = Math.max(0, totalConsumption - entailedPower);
 
       const meterName = meters.find(m => m.id === meterId)?.serial || meterId;
 
@@ -510,39 +640,39 @@ export default function PowerUsageLogDashboard() {
   const tableColumns = useMemo(() => {
     return [
       { key: 'rackName', header: 'Rack Name', sortable: false },
-      { 
-        key: 'primarySource', 
-        header: 'Primary Source (KW)', 
-        align: 'right', 
-        render: (val) => val.toFixed(2), 
+      {
+        key: 'primarySource',
+        header: 'Primary Source (kW)',
+        align: 'right',
+        render: (val) => val.toFixed(2),
         sortable: false
       },
-      { 
-        key: 'secondarySource', 
-        header: 'Secondary Source (KW)', 
-        align: 'right', 
-        render: (val) => val.toFixed(2), 
-        sortable: false 
-      },
-      { 
-        key: 'totalConsumption', 
-        header: 'Total Consumption (KW)', 
-        align: 'right', 
-        render: (val) => val.toFixed(2), 
+      {
+        key: 'secondarySource',
+        header: 'Secondary Source (kW)',
+        align: 'right',
+        render: (val) => val.toFixed(2),
         sortable: false
       },
-      { 
-        key: 'entailedPower', 
-        header: 'Entailed Power Per Rack', 
-        align: 'right', 
-        render: (val) => val.toFixed(2), 
-        sortable: false 
+      {
+        key: 'totalConsumption',
+        header: 'Total Consumption (kW)',
+        align: 'right',
+        render: (val) => val.toFixed(2),
+        sortable: false
       },
-      { 
-        key: 'additionalPower', 
-        header: 'Additional Power charges per rack', 
-        align: 'right', 
-        render: (val) => val.toFixed(2), 
+      {
+        key: 'entailedPower',
+        header: 'Threshold (kW)',
+        align: 'right',
+        render: (val) => val.toFixed(2),
+        sortable: false
+      },
+      {
+        key: 'additionalPower',
+        header: 'Extra Consumption (kW)',
+        align: 'right',
+        render: (val) => val.toFixed(2),
         sortable: false
       },
     ];
@@ -561,7 +691,7 @@ export default function PowerUsageLogDashboard() {
       </tr>
     );
   }, [summaryTableData]);
-  
+
   /* ------------------------------------------------------------------
    * Dynamic rendering (charts stay split, table is unified)
    * ------------------------------------------------------------------ */
@@ -606,9 +736,17 @@ export default function PowerUsageLogDashboard() {
           };
         }),
       };
+      
+      const setRef = (el) => {
+        if (el) {
+          chartRefs.current.set(type, el);
+        } else {
+          chartRefs.current.delete(type);
+        }
+      };
 
       return (
-        <div key={type} className="my-8">
+        <div key={type} ref={setRef} className="my-8">
           <h2 className="text-2xl font-semibold capitalize mb-4">
             {type} Meter Readings
           </h2>
@@ -621,7 +759,6 @@ export default function PowerUsageLogDashboard() {
               }}
               allowZoomAndPan
               theme={chartConfig.theme}
-              
               initialLoading={initialLoading}
             />
           </div>
@@ -646,7 +783,7 @@ export default function PowerUsageLogDashboard() {
     return (
       <>
         {chartSections}
-        {tableSection}
+        <div ref={tableWrapperRef}>{tableSection}</div>
       </>
     );
   }, [
@@ -656,7 +793,6 @@ export default function PowerUsageLogDashboard() {
     chartConfig,
     dataColumns,
     tableColumns,
-    handleOptionsApply,
     totalRow,
   ]);
 
@@ -667,8 +803,8 @@ export default function PowerUsageLogDashboard() {
     <div className="px-2 py-1">
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold">Power Usage Log Dashboard</h1>
-          <p className="opacity-70">Visualize and analyze meter data in real-time.</p>
+          <h1 className="text-2xl font-bold">Power Usage</h1>
+          <p className="opacity-70">Visualize and analyze power usage data </p>
         </div>
         <div className="flex items-center space-x-2">
           <FilterMenu
@@ -676,6 +812,7 @@ export default function PowerUsageLogDashboard() {
             onFilterChange={handleFilterChange}
             live
           />
+          <ExportButton onClick={handleExportPdf} />
         </div>
       </div>
 
