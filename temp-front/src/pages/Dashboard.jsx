@@ -94,6 +94,7 @@ export default function Dashboard() {
   const [racks, setRacks] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [tableIsLoading, setTableIsLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState(null);
   const [tableColumns, setTableColumns] = useState([]);
 
@@ -341,9 +342,9 @@ export default function Dashboard() {
     };
   }, [meters]);
 
-  // --- Stat Card Click Handler (Refactored to fetch data) ---
+  // --- Stat Card Click Handler (Refactored to fetch data and update loading state) ---
   const handleStatCardClick = useCallback(async (type) => {
-    setIsLoading(true);
+    setTableIsLoading(true);
     let newTableData;
     let newFilter = '';
     let newColumns;
@@ -356,7 +357,10 @@ export default function Dashboard() {
           { key: 'id', header: 'Meter ID' },
           { key: 'name', header: 'Name' },
           { key: 'status', header: 'Status' },
-          { key: 'description', header: 'Description' },
+          { key: 'serial', header: 'Serial' },
+          { key: 'phase', header: 'Phase' },
+          { key: 'installed_point', header: 'Installed Point' },
+          { key: 'power_source', header: 'Power Source' },
         ];
       } else if (type === 'active_meters') {
         const allMeters = await api.listMeters();
@@ -366,7 +370,10 @@ export default function Dashboard() {
           { key: 'id', header: 'Meter ID' },
           { key: 'name', header: 'Name' },
           { key: 'status', header: 'Status' },
-          { key: 'description', header: 'Description' },
+          { key: 'serial', header: 'Serial' },
+          { key: 'phase', header: 'Phase' },
+          { key: 'installed_point', header: 'Installed Point' },
+          { key: 'power_source', header: 'Power Source' },
         ];
       } else if (type === 'inactive_meters') {
         const allMeters = await api.listMeters();
@@ -376,24 +383,27 @@ export default function Dashboard() {
           { key: 'id', header: 'Meter ID' },
           { key: 'name', header: 'Name' },
           { key: 'status', header: 'Status' },
-          { key: 'description', header: 'Description' },
+          { key: 'serial', header: 'Serial' },
+          { key: 'phase', header: 'Phase' },
+          { key: 'installed_point', header: 'Installed Point' },
+          { key: 'power_source', header: 'Power Source' },
         ];
       } else if (type === 'total_customers') {
         newTableData = await api.listCustomers();
         newFilter = 'All Customers';
         newColumns = [
-          { key: 'id', header: 'Customer ID' },
-          { key: 'customer', header: 'Name' },
-          { key: 'contact_name', header: 'Contact' },
-          { key: 'contact_email', header: 'Email' },
+          { key: 'customer', header: 'Customer Name' },
+          { key: 'status', header: 'Status' },
+          { key: 'threshold', header: 'Threshold' },
+          { key: 'grace_value', header: 'Grace Value' },
         ];
       } else if (type === 'total_racks') {
         newTableData = await api.listRacks();
         newFilter = 'All Racks';
         newColumns = [
-          { key: 'id', header: 'Rack ID' },
-          { key: 'rack_name', header: 'Name' },
+          { key: 'rack_name', header: 'Rack Name' },
           { key: 'datacenter_id', header: 'Datacenter ID' },
+          { key: 'status', header: 'Status' },
         ];
       }
       
@@ -405,12 +415,14 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Failed to fetch data for stat card click:", error);
     } finally {
-      setIsLoading(false);
+      setTableIsLoading(false);
     }
   }, [api]);
 
   // --- Interaction Handlers for Charts ---
-  const handleChartClick = useCallback((type) => ({ dataIndex, datasetIndex, value, label }) => {
+  // The fix is here: The 'async' keyword is removed from the outer function
+  const handleChartClick = useCallback((type) => async ({ dataIndex, datasetIndex, value, label }) => {
+    setTableIsLoading(true);
     let filteredRows;
     let newFilter;
     let newColumns = defaultReadingColumns;
@@ -454,6 +466,7 @@ export default function Dashboard() {
         setActiveFilter(newFilter);
         setTableColumns(newColumns);
     }
+    setTableIsLoading(false);
   }, [combinedData, meters, defaultReadingColumns]);
 
   const handleClearFilter = useCallback(() => {
@@ -518,6 +531,8 @@ export default function Dashboard() {
           </>
         )}
       </div>
+
+      ---
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -602,26 +617,26 @@ export default function Dashboard() {
         )}
       </div>
 
+      ---
+
       {/* Data Table Section */}
       <div className="bg-white p-6 rounded-xl shadow-md">
-        {isLoading ? (
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-700">Detailed Readings {activeFilter && `(Filtered by: ${activeFilter})`}</h2>
+          {activeFilter && (
+            <button onClick={handleClearFilter} className="text-sm text-blue-500 hover:text-blue-700 transition-colors duration-200" aria-label="Clear all filters">
+              Clear Filter
+            </button>
+          )}
+        </div>
+        {tableIsLoading ? (
           <TableSkeleton />
         ) : (
-          <>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-700">Detailed Readings {activeFilter && `(Filtered by: ${activeFilter})`}</h2>
-              {activeFilter && (
-                <button onClick={handleClearFilter} className="text-sm text-blue-500 hover:text-blue-700 transition-colors duration-200" aria-label="Clear all filters">
-                  Clear Filter
-                </button>
-              )}
-            </div>
-            <DataTable
-              title="Readings"
-              data={tableData}
-              columns={tableColumns}
-            />
-          </>
+          <DataTable
+            title="Readings"
+            data={tableData}
+            columns={tableColumns}
+          />
         )}
       </div>
     </div>
