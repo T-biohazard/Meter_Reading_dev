@@ -62,8 +62,8 @@ const aggregateReadingsData = (datacenters, meters, mappings, combinedReadings, 
     const pa = parseFloat(t1.pa);
     const pb = parseFloat(t1.pb);
     const pc = parseFloat(t1.pc);
-    const p_total = (pa + pb + pc).toFixed(2);
-    
+    const p_total_numeric = pa + pb + pc;
+
     const reading = {
       meter_time: t2.meter_time || t2.time || t1.meter_time || t1.time,
       meter_id: meterId,
@@ -77,7 +77,7 @@ const aggregateReadingsData = (datacenters, meters, mappings, combinedReadings, 
       i_a: t1.ia !== undefined ? parseFloat(t1.ia).toFixed(2) : 'N/A',
       i_b: t1.ib !== undefined ? parseFloat(t1.ib).toFixed(2) : 'N/A',
       i_c: t1.ic !== undefined ? parseFloat(t1.ic).toFixed(2) : 'N/A',
-      p_total: isNaN(p_total) ? 'N/A' : p_total,
+      p_total: Number.isFinite(p_total_numeric) ? p_total_numeric : null,
     };
 
     if (reading.meter_time && !isNaN(reading.zygsz)) {
@@ -129,7 +129,7 @@ export default function Dashboard() {
   // --- Dashboard Metrics (reactive to active filter) ---
   const dashboardMetrics = useMemo(() => {
     const src = activeFilter
-      ? combinedData.filter(r => r.datacenterName === activeFilter || r.customerName === activeFilter || r.rackName === activeFilter)
+      ? combinedData.filter(r => r.datacenterName === activeFilter || r.customerName === activeFilter || r.rackName === activeFilter || (r.meter_time && r.meter_time.toString().includes(activeFilter)) || (r.meter_id && r.meter_id.toString().includes(activeFilter)))
       : combinedData;
 
     const totalReadings = src.length;
@@ -259,8 +259,8 @@ export default function Dashboard() {
       if (!acc[rack]) {
         acc[rack] = { total_power: 0, count: 0 };
       }
-      const powerValue = parseFloat(reading.p_total);
-      if (!isNaN(powerValue)) {
+      const powerValue = reading.p_total;
+      if (powerValue !== null) {
         acc[rack].total_power += powerValue;
         acc[rack].count += 1;
       }
@@ -288,18 +288,33 @@ export default function Dashboard() {
   }, [combinedData]);
 
   const recentPowerTrendChartData = useMemo(() => {
-    const sortedData = [...combinedData].sort((a, b) => new Date(a.meter_time) - new Date(b.meter_time));
-    const limitedData = sortedData.slice(-20); // Show last 20 readings for a clear trend
+    const sortedData = [...combinedData]
+      .filter(item => item.p_total !== null)
+      .sort((a, b) => new Date(a.meter_time) - new Date(b.meter_time));
     
+    const limitedData = sortedData.slice(-20);
+
+    const labels = limitedData.map(item => {
+      const date = new Date(item.meter_time);
+      return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    });
+
+    const dataValues = limitedData.map(item => item.p_total);
+
     return {
-      labels: limitedData.map(item => new Date(item.meter_time).toLocaleTimeString()),
+      labels: labels,
       datasets: [{
         label: 'Recent Total Power (kW)',
-        data: limitedData.map(item => parseFloat(item.p_total)),
+        data: dataValues,
         borderColor: 'rgba(255, 99, 132, 1)',
         backgroundColor: 'rgba(255, 99, 132, 0.2)',
         tension: 0.4,
         fill: false,
+        spanGaps: true,
       }],
     };
   }, [combinedData]);
@@ -320,25 +335,49 @@ export default function Dashboard() {
   }, [meters]);
 
   // --- Interaction Handlers ---
-  const handleChartClick = useCallback((type) => ({ label }) => {
+  const handleChartClick = useCallback((type) => ({ dataIndex, datasetIndex, value, label }) => {
     let filteredRows;
+    let newFilter;
+
     if (type === 'site') {
       filteredRows = combinedData.filter(row => row.datacenterName === label);
+      newFilter = label;
     } else if (type === 'top_meters') {
       filteredRows = combinedData.filter(row => row.meter_id === label);
+      newFilter = `Meter: ${label}`;
     } else if (type === 'customer') {
       filteredRows = combinedData.filter(row => row.customerName === label);
+      newFilter = `Customer: ${label}`;
     } else if (type === 'rack') {
       filteredRows = combinedData.filter(row => row.rackName === label);
+      newFilter = `Rack: ${label}`;
     } else if (type === 'status') {
-      // Logic for the status chart: filter based on meter status
       const relevantMeters = meters.filter(m => m.status.toLowerCase() === label.toLowerCase());
       const relevantMeterIds = new Set(relevantMeters.map(m => m.id.toString()));
       filteredRows = combinedData.filter(row => relevantMeterIds.has(row.meter_id));
+      newFilter = `Status: ${label}`;
+    } else if (type === 'trend') {
+      // Logic for the line graph click
+      const sortedData = [...combinedData]
+        .filter(item => item.p_total !== null)
+        .sort((a, b) => new Date(a.meter_time) - new Date(b.meter_time));
+      
+      const limitedData = sortedData.slice(-20);
+      const originalItem = limitedData[dataIndex];
+      
+      if (originalItem) {
+        filteredRows = combinedData.filter(row => 
+          row.meter_time === originalItem.meter_time && 
+          row.meter_id === originalItem.meter_id
+        );
+        newFilter = `Reading: ${originalItem.meter_id} @ ${new Date(originalItem.meter_time).toLocaleString()}`;
+      }
     }
     
-    setTableData(filteredRows);
-    setActiveFilter(label);
+    if (filteredRows) {
+        setTableData(filteredRows);
+        setActiveFilter(newFilter);
+    }
   }, [combinedData, meters]);
 
   const handleClearFilter = useCallback(() => {
@@ -438,7 +477,7 @@ export default function Dashboard() {
               <Chart
                 type="line"
                 data={recentPowerTrendChartData}
-                // Line charts don't typically filter the table by a single point, so we'll omit the onClick handler
+                onClick={handleChartClick('trend')}
               />
             </div>
 
