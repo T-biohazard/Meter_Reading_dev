@@ -5,18 +5,19 @@ import DataTable from '../components/table/DataTable';
 import { BarChart2, List, MapPin, Gauge, CheckCircle, XCircle, Users, Layers, Zap, TrendingUp, PieChart } from 'lucide-react';
 
 // Reusable UI Components
-const StatCard = ({ title, value, icon, truncate = false }) => (
-  <div className="p-5 bg-white rounded-xl shadow-md border border-gray-200 flex items-center">
+const StatCard = ({ title, value, icon, onClick }) => (
+  <button
+    onClick={onClick}
+    className="p-5 bg-white rounded-xl shadow-md border border-gray-200 flex items-center text-left hover:shadow-lg transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+  >
     <div className="p-3 mr-4 rounded-full bg-blue-100 text-blue-600">
       {icon}
     </div>
     <div>
       <h2 className="text-sm font-semibold text-gray-500 mb-1">{title}</h2>
-      <p className={`text-xl font-bold text-gray-800 ${truncate ? 'truncate' : ''}`} title={truncate ? value : undefined}>
-      {value}
-      </p>
+      <p className="text-xl font-bold text-gray-800">{value}</p>
     </div>
-  </div>
+  </button>
 );
 
 const CardSkeleton = () => <div className="h-24 bg-gray-200 rounded-xl animate-pulse"></div>;
@@ -50,15 +51,12 @@ const aggregateReadingsData = (datacenters, meters, mappings, combinedReadings, 
     const meter = meterMap.get(parseInt(meterId));
     const datacenterName = meter ? dcMap.get(meter.datacenter_id) || 'Unknown Site' : 'Unknown Site';
     
-    // Correctly map customer_id to customer name
     const customerId = mappingMap.get(parseInt(meterId)) || null;
     const customerName = customerId ? customerNameMap.get(customerId) || 'N/A' : 'N/A';
     
-    // Correctly map rack_id to rack name
     const rackId = meter ? meter.rack_id || null : null;
     const rackName = rackId ? rackMap.get(rackId) || 'N/A' : 'N/A';
     
-    // Safely parse power values and calculate p_total
     const pa = parseFloat(t1.pa);
     const pb = parseFloat(t1.pb);
     const pc = parseFloat(t1.pc);
@@ -97,6 +95,23 @@ export default function Dashboard() {
   const [customers, setCustomers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState(null);
+  const [tableColumns, setTableColumns] = useState([]);
+
+  const defaultReadingColumns = useMemo(() => ([
+    { key: 'meter_time', header: 'Timestamp' },
+    { key: 'datacenterName', header: 'Site' },
+    { key: 'rackName', header: 'Rack' },
+    { key: 'meter_id', header: 'Meter ID' },
+    { key: 'customerName', header: 'Customer' },
+    { key: 'zygsz', header: 'Energy (kWh)' },
+    { key: 'p_total', header: 'Power (kW)'},
+    { key: 'u_a', header: 'Ua (V)'},
+    { key: 'u_b', header: 'Ub (V)'},
+    { key: 'u_c', header: 'Uc (V)'},
+    { key: 'i_a', header: 'Ia (A)'},
+    { key: 'i_b', header: 'Ib (A)'},
+    { key: 'i_c', header: 'Ic (A)'},
+  ]), []);
 
   useEffect(() => {
     async function fetchData() {
@@ -117,6 +132,7 @@ export default function Dashboard() {
         const aggregated = aggregateReadingsData(datacenters, metersData, mappings, combinedReadings, racksData, customersData);
         setCombinedData(aggregated);
         setTableData(aggregated);
+        setTableColumns(defaultReadingColumns);
       } catch (error) {
         console.error("Failed to fetch fleet data:", error);
       } finally {
@@ -124,29 +140,20 @@ export default function Dashboard() {
       }
     }
     fetchData();
-  }, [api]);
+  }, [api, defaultReadingColumns]);
 
-  // --- Dashboard Metrics (reactive to active filter) ---
+  // --- Dashboard Metrics (uses ALL data) ---
   const dashboardMetrics = useMemo(() => {
-    const src = activeFilter
-      ? combinedData.filter(r => r.datacenterName === activeFilter || r.customerName === activeFilter || r.rackName === activeFilter || (r.meter_time && r.meter_time.toString().includes(activeFilter)) || (r.meter_id && r.meter_id.toString().includes(activeFilter)))
-      : combinedData;
-
-    const totalReadings = src.length;
-    const totalUniqueMeters = new Set(src.map(d => d.meter_id)).size;
-    const totalUniqueSites = new Set(src.map(d => d.datacenterName)).size;
-    const totalUniqueCustomers = new Set(src.map(d => d.customerName)).size;
-    const totalUniqueRacks = new Set(src.map(d => d.rackName)).size;
-    const latestUsage = totalReadings > 0 ? src[0].zygsz.toFixed(2) : 'N/A';
+    const totalReadings = combinedData.length;
+    const totalUniqueMeters = new Set(combinedData.map(d => d.meter_id)).size;
+    const totalUniqueSites = new Set(combinedData.map(d => d.datacenterName)).size;
+    const totalUniqueCustomers = new Set(combinedData.map(d => d.customerName)).size;
+    const totalUniqueRacks = new Set(combinedData.map(d => d.rackName)).size;
+    const latestUsage = totalReadings > 0 ? combinedData[0].zygsz.toFixed(2) : 'N/A';
     
-    const meterIdsInView = new Set(src.map(r => parseInt(r.meter_id, 10)));
-    const relevantMeters = activeFilter
-      ? meters.filter(m => meterIdsInView.has(m.id))
-      : meters;
-
-    const totalMeters   = relevantMeters.length;
-    const activeMeters  = relevantMeters.filter(m => m.status === 'active').length;
-    const inactiveMeters= relevantMeters.filter(m => m.status === 'inactive').length;
+    const totalMeters   = meters.length;
+    const activeMeters  = meters.filter(m => m.status === 'active').length;
+    const inactiveMeters= meters.filter(m => m.status === 'inactive').length;
 
     return {
       totalReadings,
@@ -159,7 +166,7 @@ export default function Dashboard() {
       activeMeters,
       inactiveMeters,
     };
-  }, [combinedData, meters, activeFilter]);
+  }, [combinedData, meters]);
 
   // --- Chart Data (Memoized) ---
   const metersBySiteChartData = useMemo(() => {
@@ -334,10 +341,79 @@ export default function Dashboard() {
     };
   }, [meters]);
 
-  // --- Interaction Handlers ---
+  // --- Stat Card Click Handler (Refactored to fetch data) ---
+  const handleStatCardClick = useCallback(async (type) => {
+    setIsLoading(true);
+    let newTableData;
+    let newFilter = '';
+    let newColumns;
+
+    try {
+      if (type === 'total_meters') {
+        newTableData = await api.listMeters();
+        newFilter = 'All Meters';
+        newColumns = [
+          { key: 'id', header: 'Meter ID' },
+          { key: 'name', header: 'Name' },
+          { key: 'status', header: 'Status' },
+          { key: 'description', header: 'Description' },
+        ];
+      } else if (type === 'active_meters') {
+        const allMeters = await api.listMeters();
+        newTableData = allMeters.filter(m => m.status === 'active');
+        newFilter = 'Active Meters';
+        newColumns = [
+          { key: 'id', header: 'Meter ID' },
+          { key: 'name', header: 'Name' },
+          { key: 'status', header: 'Status' },
+          { key: 'description', header: 'Description' },
+        ];
+      } else if (type === 'inactive_meters') {
+        const allMeters = await api.listMeters();
+        newTableData = allMeters.filter(m => m.status === 'inactive');
+        newFilter = 'Inactive Meters';
+        newColumns = [
+          { key: 'id', header: 'Meter ID' },
+          { key: 'name', header: 'Name' },
+          { key: 'status', header: 'Status' },
+          { key: 'description', header: 'Description' },
+        ];
+      } else if (type === 'total_customers') {
+        newTableData = await api.listCustomers();
+        newFilter = 'All Customers';
+        newColumns = [
+          { key: 'id', header: 'Customer ID' },
+          { key: 'customer', header: 'Name' },
+          { key: 'contact_name', header: 'Contact' },
+          { key: 'contact_email', header: 'Email' },
+        ];
+      } else if (type === 'total_racks') {
+        newTableData = await api.listRacks();
+        newFilter = 'All Racks';
+        newColumns = [
+          { key: 'id', header: 'Rack ID' },
+          { key: 'rack_name', header: 'Name' },
+          { key: 'datacenter_id', header: 'Datacenter ID' },
+        ];
+      }
+      
+      if (newTableData) {
+        setTableData(newTableData);
+        setTableColumns(newColumns);
+        setActiveFilter(newFilter);
+      }
+    } catch (error) {
+      console.error("Failed to fetch data for stat card click:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [api]);
+
+  // --- Interaction Handlers for Charts ---
   const handleChartClick = useCallback((type) => ({ dataIndex, datasetIndex, value, label }) => {
     let filteredRows;
     let newFilter;
+    let newColumns = defaultReadingColumns;
 
     if (type === 'site') {
       filteredRows = combinedData.filter(row => row.datacenterName === label);
@@ -357,7 +433,6 @@ export default function Dashboard() {
       filteredRows = combinedData.filter(row => relevantMeterIds.has(row.meter_id));
       newFilter = `Status: ${label}`;
     } else if (type === 'trend') {
-      // Logic for the line graph click
       const sortedData = [...combinedData]
         .filter(item => item.p_total !== null)
         .sort((a, b) => new Date(a.meter_time) - new Date(b.meter_time));
@@ -377,13 +452,15 @@ export default function Dashboard() {
     if (filteredRows) {
         setTableData(filteredRows);
         setActiveFilter(newFilter);
+        setTableColumns(newColumns);
     }
-  }, [combinedData, meters]);
+  }, [combinedData, meters, defaultReadingColumns]);
 
   const handleClearFilter = useCallback(() => {
     setTableData(combinedData);
     setActiveFilter(null);
-  }, [combinedData]);
+    setTableColumns(defaultReadingColumns);
+  }, [combinedData, defaultReadingColumns]);
 
   return (
     <div className="min-h-screen p-8 bg-gray-50 text-gray-900">
@@ -391,7 +468,7 @@ export default function Dashboard() {
         Interactive Fleet Dashboard
       </h1>
       <p className="text-gray-500 mb-8 text-center md:text-left">
-        Click on a chart to filter the data.
+        Click on a chart or metric to filter the data.
       </p>
 
       {/* Metrics Section */}
@@ -402,12 +479,42 @@ export default function Dashboard() {
           </>
         ) : (
           <>
-            <StatCard title="Total Meters" value={dashboardMetrics.totalMeters} icon={<Gauge size={24} />} />
-            <StatCard title="Active Meters" value={dashboardMetrics.activeMeters} icon={<CheckCircle size={24} />} />
-            <StatCard title="Inactive Meters" value={dashboardMetrics.inactiveMeters} icon={<XCircle size={24} />} />
-            <StatCard title="Active Customers" value={dashboardMetrics.totalUniqueCustomers} icon={<Users size={24} />} />
-            <StatCard title="Total Racks" value={dashboardMetrics.totalUniqueRacks} icon={<Layers size={24} />} />
-            <StatCard title="Latest Usage" value={`${dashboardMetrics.latestUsage} kWh`} icon={<BarChart2 size={24} />} />
+            <StatCard
+              title="Total Meters"
+              value={dashboardMetrics.totalMeters}
+              icon={<Gauge size={24} />}
+              onClick={() => handleStatCardClick('total_meters')}
+            />
+            <StatCard
+              title="Active Meters"
+              value={dashboardMetrics.activeMeters}
+              icon={<CheckCircle size={24} />}
+              onClick={() => handleStatCardClick('active_meters')}
+            />
+            <StatCard
+              title="Inactive Meters"
+              value={dashboardMetrics.inactiveMeters}
+              icon={<XCircle size={24} />}
+              onClick={() => handleStatCardClick('inactive_meters')}
+            />
+            <StatCard
+              title="Active Customers"
+              value={dashboardMetrics.totalUniqueCustomers}
+              icon={<Users size={24} />}
+              onClick={() => handleStatCardClick('total_customers')}
+            />
+            <StatCard
+              title="Total Racks"
+              value={dashboardMetrics.totalUniqueRacks}
+              icon={<Layers size={24} />}
+              onClick={() => handleStatCardClick('total_racks')}
+            />
+            <StatCard
+              title="Latest Usage"
+              value={`${dashboardMetrics.latestUsage} kWh`}
+              icon={<BarChart2 size={24} />}
+              onClick={() => {}}
+            />
           </>
         )}
       </div>
@@ -468,7 +575,6 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* NEW: Line Graph */}
             <div className="relative h-[400px] bg-white rounded-xl shadow-md p-6 flex flex-col" aria-label="Recent Power Trend">
               <h2 className="text-xl font-semibold mb-2 flex items-center">
                 <TrendingUp className="w-5 h-5 mr-2" aria-hidden="true" />
@@ -481,7 +587,6 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* NEW: Doughnut Chart */}
             <div className="relative h-[400px] bg-white rounded-xl shadow-md p-6 flex flex-col" aria-label="Meter Status Doughnut Chart">
               <h2 className="text-xl font-semibold mb-2 flex items-center">
                 <PieChart className="w-5 h-5 mr-2" aria-hidden="true" />
@@ -514,21 +619,7 @@ export default function Dashboard() {
             <DataTable
               title="Readings"
               data={tableData}
-              columns={[
-                { key: 'meter_time', header: 'Timestamp' },
-                { key: 'datacenterName', header: 'Site' },
-                { key: 'rackName', header: 'Rack' },
-                { key: 'meter_id', header: 'Meter ID' },
-                { key: 'customerName', header: 'Customer' },
-                { key: 'zygsz', header: 'Energy (kWh)' },
-                { key: 'p_total', header: 'Power (kW)'},
-                { key: 'u_a', header: 'Ua (V)'},
-                { key: 'u_b', header: 'Ub (V)'},
-                { key: 'u_c', header: 'Uc (V)'},
-                { key: 'i_a', header: 'Ia (A)'},
-                { key: 'i_b', header: 'Ib (A)'},
-                { key: 'i_c', header: 'Ic (A)'},
-              ]}
+              columns={tableColumns}
             />
           </>
         )}
